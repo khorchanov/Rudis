@@ -26,7 +26,6 @@ pub struct Executor<S: Store, C: Clock> {
 }
 
 impl<S: Store, C: Clock> Executor<S, C> {
-
     pub fn process(&mut self, command: Command) -> anyhow::Result<Option<String>> {
         Ok(match command {
             Command::Ping => Some("PONG".to_string()),
@@ -35,7 +34,11 @@ impl<S: Store, C: Clock> Executor<S, C> {
                     .put(key.clone(), Entry::expiring(value.clone()))?;
                 None
             }
-            Command::Get(key) => self.store.get(key.as_str())?.map(|entry| entry.value),
+            Command::Get(key) => self
+                .store
+                .get(key.as_str())?
+                .filter(|entry| entry.expires_at > self.clock.now()) //TODO: delete from store
+                .map(|entry| entry.value),
         })
     }
 }
@@ -52,5 +55,4 @@ impl Command {
             )),
         }
     }
-
 }

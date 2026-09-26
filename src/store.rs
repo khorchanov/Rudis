@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 
@@ -10,14 +13,14 @@ pub trait Store {
 #[derive(Clone)]
 pub struct Entry {
     pub value: String,
-    pub expires_at: Option<Instant>
+    pub expires_at: Instant,
 }
 
 impl Entry {
-    pub fn expiring(value : String) -> Self {
+    pub fn expiring(value: String) -> Self {
         Entry {
             value,
-            expires_at: Some(Instant::now() + Duration::from_mins(5))
+            expires_at: Instant::now() + Duration::from_mins(5),
         }
     }
 }

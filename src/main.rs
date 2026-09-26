@@ -61,7 +61,11 @@ fn handle_request<S: Store, C: Clock>(
 mod test {
 
     use std::{
-        cell::RefCell, io::{Cursor, Result as IoResult, Write}, rc::Rc, sync::{Arc, Mutex}, time::{Duration, Instant},
+        cell::RefCell,
+        io::{Cursor, Result as IoResult, Write},
+        rc::Rc,
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
     };
 
     use crate::{
@@ -97,7 +101,8 @@ mod test {
 
     impl TestClock {
         fn advance_time_with(&self, duration: Duration) {
-            self.simulated_time.borrow_mut().checked_add(duration);
+            let old_value = self.simulated_time.borrow().clone();
+            *self.simulated_time.borrow_mut() = old_value + duration;
         }
     }
 
@@ -157,5 +162,7 @@ mod test {
 
         let response = send_and_get("GET name\n", &mut executor);
         assert_eq!(response, "OK \n");
+
+        //  TODO: check it was removed from store
     }
 }
