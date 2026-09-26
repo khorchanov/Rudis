@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 
 use crate::{
-    command::Command,
+    command::{Clock, Command, Executor, SystemClock},
     store::{HashMapStore, Store},
 };
 
@@ -15,13 +15,16 @@ mod store;
 
 fn main() -> Result<()> {
     let listener = TcpListener::bind("0.0.0.0:8080")?;
-    let mut store = HashMapStore::new();
+    let mut executor = Executor {
+        store: HashMapStore::new(),
+        clock: SystemClock {},
+    };
 
     println!("Server listening on port 8080");
 
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => handle_request(stream.try_clone()?, stream, &mut store)?, //TODO: this is ugly
+            Ok(stream) => handle_request(stream.try_clone()?, stream, &mut executor)?, //TODO: this is ugly
             Err(err) => eprintln!("Connection failed {err}"),
         }
     }
@@ -29,10 +32,10 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_request(
+fn handle_request<S: Store, C: Clock>(
     stream_reader: impl Read,
     stream_writer: impl Write,
-    store: &mut impl Store,
+    executor: &mut Executor<S, C>,
 ) -> Result<()> {
     let mut reader = BufReader::new(stream_reader);
     let mut buffer = String::new();
@@ -42,7 +45,7 @@ fn handle_request(
         Err(e) => return Err(e.into()),
         Ok(_) => {
             let command = Command::try_parse(buffer)?;
-            let processing_result = command.process(store)?;
+            let processing_result = executor.process(command)?;
             let mut writer = BufWriter::new(stream_writer);
             writer.write_all(
                 format!("OK {}\n", processing_result.unwrap_or_default())
@@ -63,8 +66,7 @@ mod test {
     };
 
     use crate::{
-        handle_request,
-        store::{HashMapStore, Store},
+        command::{Clock, Executor, SystemClock}, handle_request, store::{HashMapStore, Store},
     };
 
     #[derive(Clone, Default)]
@@ -79,10 +81,10 @@ mod test {
         }
     }
 
-    fn send_and_get(request: &str, store: &mut impl Store) -> String {
+    fn send_and_get<S: Store, C: Clock>(request: &str, store: &mut Executor<S, C>) -> String {
         let input = Cursor::new(request.as_bytes());
         let reader = std::io::BufReader::new(input);
-        let writer = TestBuffer::default();
+        let writer: TestBuffer = TestBuffer::default();
         let writer_handle = writer.clone();
         handle_request(reader, writer, store).unwrap();
         let output = writer_handle.0.lock().unwrap();
@@ -91,19 +93,39 @@ mod test {
 
     #[test]
     fn test_ping() {
-        let mut store = HashMapStore::new();
-        let response = send_and_get("PING\n", &mut store);
+        let mut executor = Executor {
+            store: HashMapStore::new(),
+            clock: SystemClock {},
+        };
+        let response = send_and_get("PING\n", &mut executor);
         assert_eq!(response, "OK PONG\n");
     }
 
     #[test]
     pub fn should_store_and_read() {
-        let mut store = HashMapStore::new();
+        let mut executor = Executor {
+            store: HashMapStore::new(),
+            clock: SystemClock {},
+        };
 
-        let response = send_and_get("PUT name Moez\n", &mut store);
+        let response = send_and_get("PUT name Moez\n", &mut executor);
         assert_eq!(response, "OK \n");
 
-        let response = send_and_get("GET name\n", &mut store);
+        let response = send_and_get("GET name\n", &mut executor);
+        assert_eq!(response, "OK Moez\n");
+    }
+
+    #[test]
+    pub fn should_expire() {
+        let mut executor = Executor {
+            store: HashMapStore::new(),
+            clock: SystemClock {},
+        };
+
+        let response = send_and_get("PUT name Moez\n", &mut executor);
+        assert_eq!(response, "OK \n");
+
+        let response = send_and_get("GET name\n", &mut executor);
         assert_eq!(response, "OK Moez\n");
     }
 }
