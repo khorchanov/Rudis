@@ -1,3 +1,5 @@
+use crate::store::Store;
+
 pub enum Command {
     Ping,
     Put(String, String),
@@ -17,11 +19,14 @@ impl Command {
         }
     }
 
-    pub fn process(&self) -> anyhow::Result<String> {
+    pub fn process(&self, store: &mut impl Store) -> anyhow::Result<Option<String>> {
         Ok(match self {
-            Command::Ping => "PONG",
-            Command::Put(_, _) | Command::Get(_) => "OK",
-        }
-        .to_string())
+            Command::Ping => Some("PONG".to_string()),
+            Command::Put(key, value) => {
+                store.put(key.clone(), value.clone())?;
+                None
+            }
+            Command::Get(key) => store.get(key)?,
+        })
     }
 }
