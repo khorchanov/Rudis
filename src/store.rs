@@ -4,7 +4,7 @@ use anyhow::Result;
 
 pub trait Store {
     fn put(&mut self, key: String, value: String) -> Result<()>;
-    fn get(&self, key: &String) -> Result<Option<String>>;
+    fn get(&self, key: &str) -> Result<Option<String>>;
 }
 
 pub struct HashMapStore {
@@ -25,7 +25,7 @@ impl Store for HashMapStore {
         Ok(())
     }
 
-    fn get(&self, key: &String) -> Result<Option<String>> {
+    fn get(&self, key: &str) -> Result<Option<String>> {
         Ok(self.broker.get(key).cloned())
     }
 }

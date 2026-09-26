@@ -62,7 +62,10 @@ mod test {
         sync::{Arc, Mutex},
     };
 
-    use crate::{handle_request, store::HashMapStore};
+    use crate::{
+        handle_request,
+        store::{HashMapStore, Store},
+    };
 
     #[derive(Clone, Default)]
     struct TestBuffer(Arc<Mutex<Vec<u8>>>);
@@ -76,40 +79,31 @@ mod test {
         }
     }
 
+    fn send_and_get(request: &str, store: &mut impl Store) -> String {
+        let input = Cursor::new(request.as_bytes());
+        let reader = std::io::BufReader::new(input);
+        let writer = TestBuffer::default();
+        let writer_handle = writer.clone();
+        handle_request(reader, writer, store).unwrap();
+        let output = writer_handle.0.lock().unwrap();
+        String::from_utf8(Vec::from(&output[..])).unwrap()
+    }
+
     #[test]
     fn test_ping() {
-        let input = Cursor::new(b"PING\n".to_vec());
-        let reader = std::io::BufReader::new(input);
-
-        let writer = TestBuffer::default();
-        let writer_handle = writer.clone(); // keep a handle before the move
-
         let mut store = HashMapStore::new();
-
-        handle_request(reader, writer, &mut store).unwrap();
-
-        let output = writer_handle.0.lock().unwrap();
-        assert_eq!(&output[..], b"OK PONG\n");
+        let response = send_and_get("PING\n", &mut store);
+        assert_eq!(response, "OK PONG\n");
     }
 
     #[test]
     pub fn should_store_and_read() {
-        let input = Cursor::new(b"PUT name Moez\n".to_vec());
-        let reader = std::io::BufReader::new(input);
-        let writer = TestBuffer::default();
-        let writer_handle = writer.clone();
         let mut store = HashMapStore::new();
-        handle_request(reader, writer, &mut store).unwrap();
-        let output = writer_handle.0.lock().unwrap();
-        assert_eq!(&output[..], b"OK \n");
 
-        let input = Cursor::new(b"GET name\n".to_vec());
-        let reader = std::io::BufReader::new(input);
-        let writer = TestBuffer::default();
-        let writer_handle = writer.clone();
-        handle_request(reader, writer, &mut store).unwrap();
+        let response = send_and_get("PUT name Moez\n", &mut store);
+        assert_eq!(response, "OK \n");
 
-        let output = writer_handle.0.lock().unwrap();
-        assert_eq!(&output[..], b"OK Moez\n");
+        let response = send_and_get("GET name\n", &mut store);
+        assert_eq!(response, "OK Moez\n");
     }
 }
