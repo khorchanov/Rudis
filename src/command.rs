@@ -9,13 +9,13 @@ pub enum Command {
 }
 
 pub trait Clock {
-    fn now() -> Instant;
+    fn now(&self) -> Instant;
 }
 
 pub struct SystemClock {}
 
 impl Clock for SystemClock {
-    fn now() -> Instant {
+    fn now(&self) -> Instant {
         Instant::now()
     }
 }

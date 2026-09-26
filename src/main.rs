@@ -61,12 +61,13 @@ fn handle_request<S: Store, C: Clock>(
 mod test {
 
     use std::{
-        io::{Cursor, Result as IoResult, Write},
-        sync::{Arc, Mutex},
+        cell::RefCell, io::{Cursor, Result as IoResult, Write}, rc::Rc, sync::{Arc, Mutex}, time::{Duration, Instant},
     };
 
     use crate::{
-        command::{Clock, Executor, SystemClock}, handle_request, store::{HashMapStore, Store},
+        command::{Clock, Executor, SystemClock},
+        handle_request,
+        store::{HashMapStore, Store},
     };
 
     #[derive(Clone, Default)]
@@ -78,6 +79,31 @@ mod test {
         }
         fn flush(&mut self) -> IoResult<()> {
             self.0.lock().unwrap().flush()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct TestClock {
+        simulated_time: Rc<RefCell<Instant>>,
+    }
+
+    impl Default for TestClock {
+        fn default() -> Self {
+            Self {
+                simulated_time: Rc::new(RefCell::new(Instant::now())),
+            }
+        }
+    }
+
+    impl TestClock {
+        fn advance_time_with(&self, duration: Duration) {
+            self.simulated_time.borrow_mut().checked_add(duration);
+        }
+    }
+
+    impl Clock for TestClock {
+        fn now(&self) -> Instant {
+            *self.simulated_time.borrow()
         }
     }
 
@@ -117,15 +143,19 @@ mod test {
 
     #[test]
     pub fn should_expire() {
+        let clock = TestClock::default();
+
         let mut executor = Executor {
             store: HashMapStore::new(),
-            clock: SystemClock {},
+            clock: clock.clone(),
         };
 
         let response = send_and_get("PUT name Moez\n", &mut executor);
         assert_eq!(response, "OK \n");
 
+        clock.advance_time_with(Duration::from_mins(10));
+
         let response = send_and_get("GET name\n", &mut executor);
-        assert_eq!(response, "OK Moez\n");
+        assert_eq!(response, "OK \n");
     }
 }
