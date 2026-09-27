@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use anyhow::Ok;
+
 use crate::{
     command::Command,
     store::{Entry, Store},
@@ -42,6 +44,7 @@ impl<S: Store, C: Clock> Executor<S, C> {
                     true
                 })
                 .map(|entry| entry.value),
+            Command::Del(key) => self.store.delete(&key)?.map(|entry| entry.value),
         })
     }
 }

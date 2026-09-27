@@ -2,6 +2,7 @@ pub enum Command {
     Ping,
     Put(String, String),
     Get(String),
+    Del(String),
 }
 
 impl Command {
@@ -10,6 +11,7 @@ impl Command {
         match sanitized.as_slice() {
             ["PING"] => Ok(Command::Ping),
             ["GET", key] => Ok(Command::Get(key.to_string())),
+            ["DEL", key] => Ok(Command::Del(key.to_string())),
             ["PUT", key, value] => Ok(Command::Put(key.to_string(), value.to_string())),
             _ => Err(anyhow::anyhow!(
                 "Unable to understand such command {buffer}"

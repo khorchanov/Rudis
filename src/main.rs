@@ -126,6 +126,30 @@ mod test {
         String::from_utf8(Vec::from(&output[..])).unwrap()
     }
 
+    #[derive(Clone)]
+    struct TestStore(Rc<RefCell<HashMap<String, Entry>>>);
+
+    impl Store for TestStore {
+        fn put(&mut self, key: String, value: crate::store::Entry) -> anyhow::Result<()> {
+            self.0.borrow_mut().insert(key, value);
+            Ok(())
+        }
+
+        fn get(&self, key: &str) -> anyhow::Result<Option<crate::store::Entry>> {
+            Ok(self.0.borrow().get(key).cloned())
+        }
+
+        fn delete(&mut self, key: &str) -> anyhow::Result<Option<crate::store::Entry>> {
+            Ok(self.0.borrow_mut().remove(key))
+        }
+    }
+
+    impl Default for TestStore {
+        fn default() -> Self {
+            Self(Rc::new(RefCell::new(HashMap::new())))
+        }
+    }
+
     // End Test utilities
 
     #[test]
@@ -152,28 +176,24 @@ mod test {
         assert_eq!(response, "OK Moez\n");
     }
 
-    #[derive(Clone)]
-    struct TestStore(Rc<RefCell<HashMap<String, Entry>>>);
+    #[test]
+    pub fn should_store_and_delete() {
+        let mut executor = Executor {
+            store: HashMapStore::new(),
+            clock: SystemClock {},
+        };
 
-    impl Store for TestStore {
-        fn put(&mut self, key: String, value: crate::store::Entry) -> anyhow::Result<()> {
-            self.0.borrow_mut().insert(key, value);
-            Ok(())
-        }
+        let response = send_and_get("PUT name Moez\n", &mut executor);
+        assert_eq!(response, "OK \n");
 
-        fn get(&self, key: &str) -> anyhow::Result<Option<crate::store::Entry>> {
-            Ok(self.0.borrow().get(key).cloned())
-        }
+        let response = send_and_get("GET name\n", &mut executor);
+        assert_eq!(response, "OK Moez\n");
 
-        fn delete(&mut self, key: &str) -> anyhow::Result<Option<crate::store::Entry>> {
-            Ok(self.0.borrow_mut().remove(key))
-        }
-    }
+        let response = send_and_get("DEL name\n", &mut executor);
+        assert_eq!(response, "OK Moez\n");
 
-    impl Default for TestStore {
-        fn default() -> Self {
-            Self(Rc::new(RefCell::new(HashMap::new())))
-        }
+        let response = send_and_get("GET name\n", &mut executor);
+        assert_eq!(response, "OK \n");
     }
 
     #[test]
