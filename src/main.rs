@@ -40,20 +40,31 @@ fn handle_request<S: Store, C: Clock>(
     executor: &mut Executor<S, C>,
 ) -> Result<()> {
     let mut reader = BufReader::new(stream_reader);
-    let mut buffer = String::new();
-    let read_ops = reader.read_line(&mut buffer);
-    match read_ops {
-        Ok(0) => {}
-        Err(e) => return Err(e.into()),
-        Ok(_) => {
-            let command = Command::try_parse(buffer)?;
-            let processing_result = executor.process(command)?;
-            let mut writer = BufWriter::new(stream_writer);
-            writer.write_all(
-                format!("OK {}\n", processing_result.unwrap_or_default())
-                    .into_bytes()
-                    .as_slice(),
-            )?;
+    let mut writer = BufWriter::new(stream_writer);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let read_ops = reader.read_line(&mut line); //TODO: beware of blocking ops
+        match read_ops {
+            Ok(0) => {
+                println!("Client closed the connection");
+                break;
+            }
+            Err(e) => return Err(e.into()),
+            Ok(_) => {
+                if line.trim().is_empty() {
+                    println!("Empty line received");
+                    break;
+                }
+                let command = Command::try_parse(&line)?;
+                let processing_result = executor.process(command)?;
+                writer.write_all(
+                    format!("OK {}\n", processing_result.unwrap_or_default())
+                        .into_bytes()
+                        .as_slice(),
+                )?;
+                writer.flush()?;
+            }
         }
     }
     Ok(())

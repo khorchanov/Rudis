@@ -6,7 +6,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn try_parse(buffer: String) -> anyhow::Result<Self> {
+    pub fn try_parse(buffer: &String) -> anyhow::Result<Self> {
         let sanitized: Vec<&str> = buffer.trim().splitn(3, ' ').collect(); //TODO: temporary since no command accepts more than 2 args
         match sanitized.as_slice() {
             ["PING"] => Ok(Command::Ping),
