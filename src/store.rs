@@ -5,9 +5,12 @@ use std::{
 
 use anyhow::Result;
 
+const EXPIRATION_DEPLAY: Duration = Duration::from_mins(5);
+
 pub trait Store {
     fn put(&mut self, key: String, value: Entry) -> Result<()>;
     fn get(&self, key: &str) -> Result<Option<Entry>>;
+    fn delete(&mut self, key: &str) -> Result<Option<Entry>>;
 }
 
 #[derive(Clone)]
@@ -20,7 +23,7 @@ impl Entry {
     pub fn expiring(value: String) -> Self {
         Entry {
             value,
-            expires_at: Instant::now() + Duration::from_mins(5),
+            expires_at: Instant::now() + EXPIRATION_DEPLAY,
         }
     }
 }
@@ -45,5 +48,9 @@ impl Store for HashMapStore {
 
     fn get(&self, key: &str) -> Result<Option<Entry>> {
         Ok(self.broker.get(key).cloned())
+    }
+
+    fn delete(&mut self, key: &str) -> Result<Option<Entry>> {
+        Ok(self.broker.remove(key))
     }
 }

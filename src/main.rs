@@ -6,11 +6,13 @@ use std::{
 use anyhow::Result;
 
 use crate::{
-    command::{Clock, Command, Executor, SystemClock},
+    command::Command,
+    executor::{Clock, Executor, SystemClock},
     store::{HashMapStore, Store},
 };
 
 mod command;
+mod executor;
 mod store;
 
 fn main() -> Result<()> {
@@ -62,6 +64,7 @@ mod test {
 
     use std::{
         cell::RefCell,
+        collections::HashMap,
         io::{Cursor, Result as IoResult, Write},
         rc::Rc,
         sync::{Arc, Mutex},
@@ -69,11 +72,12 @@ mod test {
     };
 
     use crate::{
-        command::{Clock, Executor, SystemClock},
+        executor::{Clock, Executor, SystemClock},
         handle_request,
-        store::{HashMapStore, Store},
+        store::{Entry, HashMapStore, Store},
     };
 
+    // Test utilities
     #[derive(Clone, Default)]
     struct TestBuffer(Arc<Mutex<Vec<u8>>>);
 
@@ -122,6 +126,8 @@ mod test {
         String::from_utf8(Vec::from(&output[..])).unwrap()
     }
 
+    // End Test utilities
+
     #[test]
     fn test_ping() {
         let mut executor = Executor {
@@ -146,12 +152,37 @@ mod test {
         assert_eq!(response, "OK Moez\n");
     }
 
+    #[derive(Clone)]
+    struct TestStore(Rc<RefCell<HashMap<String, Entry>>>);
+
+    impl Store for TestStore {
+        fn put(&mut self, key: String, value: crate::store::Entry) -> anyhow::Result<()> {
+            self.0.borrow_mut().insert(key, value);
+            Ok(())
+        }
+
+        fn get(&self, key: &str) -> anyhow::Result<Option<crate::store::Entry>> {
+            Ok(self.0.borrow().get(key).cloned())
+        }
+
+        fn delete(&mut self, key: &str) -> anyhow::Result<Option<crate::store::Entry>> {
+            Ok(self.0.borrow_mut().remove(key))
+        }
+    }
+
+    impl Default for TestStore {
+        fn default() -> Self {
+            Self(Rc::new(RefCell::new(HashMap::new())))
+        }
+    }
+
     #[test]
-    pub fn should_expire() {
+    pub fn expired_entries_should_not_be_returned() {
         let clock = TestClock::default();
+        let store = TestStore::default();
 
         let mut executor = Executor {
-            store: HashMapStore::new(),
+            store: store.clone(),
             clock: clock.clone(),
         };
 
@@ -163,6 +194,6 @@ mod test {
         let response = send_and_get("GET name\n", &mut executor);
         assert_eq!(response, "OK \n");
 
-        //  TODO: check it was removed from store
+        assert!(matches!(store.get("name"), Ok(None)));
     }
 }
