@@ -13,7 +13,7 @@ impl Command {
 
         let command = match iterator.next() {
             Some(command) => command,
-            None => todo!(),
+            None => return Err(anyhow::anyhow!("Unable to understand such command")),
         };
 
         match *command {
