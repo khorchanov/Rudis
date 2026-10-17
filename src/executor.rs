@@ -25,26 +25,27 @@ pub struct Executor<S: Store, C: Clock> {
 }
 
 impl<S: Store, C: Clock> Executor<S, C> {
-    pub fn process(&mut self, command: Command) -> anyhow::Result<Option<String>> {
+    pub async fn process(&mut self, command: Command) -> anyhow::Result<Option<String>> {
         Ok(match command {
             Command::Ping => Some("PONG".to_string()),
             Command::Put(key, value) => {
                 self.store
-                    .put(key.clone(), Entry::expiring(value.clone()))?;
+                    .put(key.clone(), Entry::expiring(value.clone()))
+                    .await?;
                 None
             }
-            Command::Get(key) => self
-                .store
-                .get(key.as_str())?
-                .filter(|entry| {
+            Command::Get(key) => match self.store.get(key.as_str()).await? {
+                Some(entry) => {
                     if self.clock.now() > entry.expires_at {
-                        let _ = self.store.delete(&key);
-                        return false;
+                        let _ = self.store.delete(&key).await;
+                        None
+                    } else {
+                        Some(entry.value)
                     }
-                    true
-                })
-                .map(|entry| entry.value),
-            Command::Del(key) => self.store.delete(&key)?.map(|entry| entry.value),
+                }
+                None => None,
+            },
+            Command::Del(key) => self.store.delete(&key).await?.map(|entry| entry.value),
         })
     }
 }

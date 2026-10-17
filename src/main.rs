@@ -1,25 +1,25 @@
+use tokio::net::TcpListener;
+
 use anyhow::Result;
 use rudis::{
     executor::{Executor, SystemClock},
     handle_request,
     store::HashMapStore,
 };
-use std::net::TcpListener;
 
-fn main() -> Result<()> {
-    let listener = TcpListener::bind("0.0.0.0:8080")?;
+#[tokio::main]
+async fn main() -> Result<()> {
+    let listener = TcpListener::bind("0.0.0.0:8080").await?;
     let mut executor = Executor {
-        store: HashMapStore::new(),
+        store: HashMapStore::default(),
         clock: SystemClock {},
     };
 
     println!("Server listening on port 8080");
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => handle_request(stream.try_clone()?, stream, &mut executor)?, //TODO: this is ugly
-            Err(err) => eprintln!("Connection failed {err}"),
-        }
+    loop {
+        let (mut stream, _) = listener.accept().await?;
+        let (reader, writer) = stream.split();
+        handle_request(reader, writer, &mut executor).await?;
     }
-    Ok(())
 }
