@@ -1,11 +1,10 @@
 use std::{
     collections::HashMap,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
 use anyhow::Result;
-use tokio::sync::Mutex;
 
 const EXPIRATION_DEPLAY: Duration = Duration::from_mins(5);
 
@@ -44,15 +43,18 @@ impl Default for HashMapStore {
 
 impl Store for HashMapStore {
     async fn put(&mut self, key: String, value: Entry) -> Result<()> {
-        self.broker.lock().await.insert(key, value);
+        let mut guard = self.broker.lock().expect("Store mutex poisoned");
+        guard.insert(key, value);
         Ok(())
     }
 
     async fn get(&self, key: &str) -> Result<Option<Entry>> {
-        Ok(self.broker.lock().await.get(key).cloned()) //TODO: can we not lock ?
+        let guard = self.broker.lock().expect("Store mutex poisoned");
+        Ok(guard.get(key).cloned()) //TODO; can't we not lock ? //TODO: can't we not clone ?
     }
 
     async fn delete(&mut self, key: &str) -> Result<Option<Entry>> {
-        Ok(self.broker.lock().await.remove(key))
+        let mut guard = self.broker.lock().expect("Store mutex poisoned");
+        Ok(guard.remove(key))
     }
 }
