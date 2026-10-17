@@ -7,6 +7,7 @@ pub enum Command {
 
 impl Command {
     pub fn try_parse(buffer: &String) -> anyhow::Result<Self> {
+        //TODO: support messages with spaces
         let sanitized: Vec<&str> = buffer.trim().split(' ').collect();
         let mut iterator: std::slice::Iter<'_, &str> = sanitized.iter();
 

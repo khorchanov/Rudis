@@ -16,6 +16,7 @@ pub async fn handle_connection<S: Store, C: Clock>(
     stream_writer: impl AsyncWrite + Unpin,
     executor: &mut Executor<S, C>,
 ) -> Result<()> {
+    println!("New Client Connected");
     let mut reader = BufReader::new(stream_reader);
     let mut writer = BufWriter::new(stream_writer);
     let mut line = String::new();
@@ -33,19 +34,30 @@ pub async fn handle_connection<S: Store, C: Clock>(
                     println!("Empty line received");
                     break;
                 }
-                let command = Command::try_parse(&line)?;
+                let command = if let Ok(command) = Command::try_parse(&line) {
+                    command
+                } else {
+                    write(&mut writer, format!("ERR {}\n", 400)).await?;
+                    continue;
+                };
                 let processing_result = executor.process(command).await?;
-                writer
-                    .write_all(
-                        format!("OK {}\n", processing_result.unwrap_or_default())
-                            .into_bytes()
-                            .as_slice(),
-                    )
-                    .await?;
-                writer.flush().await?;
+                write(
+                    &mut writer,
+                    format!("OK {}\n", processing_result.unwrap_or_default()),
+                )
+                .await?;
             }
         }
     }
+    Ok(())
+}
+
+async fn write(
+    writer: &mut BufWriter<impl AsyncWrite + Unpin>,
+    response: String,
+) -> Result<(), anyhow::Error> {
+    writer.write_all(response.into_bytes().as_slice()).await?;
+    writer.flush().await?;
     Ok(())
 }
 
