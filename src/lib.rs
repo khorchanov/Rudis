@@ -11,7 +11,7 @@ pub mod command;
 pub mod executor;
 pub mod store;
 
-pub async fn handle_request<S: Store, C: Clock>(
+pub async fn handle_connection<S: Store, C: Clock>(
     stream_reader: impl AsyncRead + Unpin,
     stream_writer: impl AsyncWrite + Unpin,
     executor: &mut Executor<S, C>,
@@ -64,7 +64,7 @@ mod test {
 
     use crate::{
         executor::{Clock, Executor, SystemClock},
-        handle_request,
+        handle_connection,
         store::{Entry, HashMapStore, Store},
     };
 
@@ -128,7 +128,7 @@ mod test {
         let reader = BufReader::new(input);
         let writer: TestBuffer = TestBuffer::default();
         let writer_handle = writer.clone();
-        handle_request(reader, writer, store).await.unwrap();
+        handle_connection(reader, writer, store).await.unwrap();
         let output = writer_handle.0.lock().unwrap();
         String::from_utf8(Vec::from(&output[..])).unwrap()
     }

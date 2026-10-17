@@ -3,7 +3,7 @@ use tokio::net::TcpListener;
 use anyhow::Result;
 use rudis::{
     executor::{Executor, SystemClock},
-    handle_request,
+    handle_connection,
     store::HashMapStore,
 };
 
@@ -20,6 +20,6 @@ async fn main() -> Result<()> {
     loop {
         let (mut stream, _) = listener.accept().await?;
         let (reader, writer) = stream.split();
-        handle_request(reader, writer, &mut executor).await?;
+        handle_connection(reader, writer, &mut executor).await?;
     }
 }
