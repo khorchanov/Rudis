@@ -10,16 +10,9 @@ use tokio::sync::Mutex;
 const EXPIRATION_DEPLAY: Duration = Duration::from_mins(5);
 
 pub trait Store {
-    fn put(
-        &mut self,
-        key: String,
-        value: Entry,
-    ) -> impl std::future::Future<Output = Result<()>>;
+    fn put(&mut self, key: String, value: Entry) -> impl std::future::Future<Output = Result<()>>;
     fn get(&self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
-    fn delete(
-        &mut self,
-        key: &str,
-    ) -> impl std::future::Future<Output = Result<Option<Entry>>>;
+    fn delete(&mut self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
 }
 
 #[derive(Clone, Debug)]

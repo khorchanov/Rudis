@@ -223,6 +223,7 @@ mod test {
         let response = send_and_get("GET name\n", &mut executor).await;
         assert_eq!(response, "OK \n");
 
-        assert!(dbg!(store.get("name").await.ok()).is_none());
+        let result = dbg!(store.get("name").await);
+        assert!(matches!(result, Ok(None)));
     }
 }
