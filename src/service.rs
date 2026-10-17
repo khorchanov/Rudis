@@ -25,7 +25,7 @@ pub struct Executor<S: Store, C: Clock> {
 }
 
 impl<S: Store, C: Clock> Executor<S, C> {
-    pub async fn process(&mut self, command: Command) -> anyhow::Result<Option<String>> {
+    pub async fn process_command(&mut self, command: Command) -> anyhow::Result<Option<String>> {
         Ok(match command {
             Command::Ping => Some("PONG".to_string()),
             Command::Put(key, value) => {

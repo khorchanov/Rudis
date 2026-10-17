@@ -2,7 +2,7 @@ use tokio::net::TcpListener;
 
 use anyhow::Result;
 use rudis::{
-    executor::{Executor, SystemClock},
+    service::{Executor, SystemClock},
     handle_connection,
     store::HashMapStore,
 };

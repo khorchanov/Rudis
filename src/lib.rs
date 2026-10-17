@@ -3,18 +3,18 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 
 use crate::{
     command::Command,
-    executor::{Clock, Executor},
+    service::{Clock, Executor},
     store::Store,
 };
 
 pub mod command;
-pub mod executor;
+pub mod service;
 pub mod store;
 
 pub async fn handle_connection<S: Store, C: Clock>(
     stream_reader: impl AsyncRead + Unpin,
     stream_writer: impl AsyncWrite + Unpin,
-    executor: &mut Executor<S, C>,
+    service: &mut Executor<S, C>,
 ) -> Result<()> {
     println!("New Client Connected");
     let mut reader = BufReader::new(stream_reader);
@@ -40,7 +40,7 @@ pub async fn handle_connection<S: Store, C: Clock>(
                     write(&mut writer, format!("ERR {}\n", 400)).await?;
                     continue;
                 };
-                let processing_result = executor.process(command).await?;
+                let processing_result = service.process_command(command).await?;
                 write(
                     &mut writer,
                     format!("OK {}\n", processing_result.unwrap_or_default()),
@@ -75,7 +75,7 @@ mod test {
     use tokio::io::{AsyncWrite, BufReader};
 
     use crate::{
-        executor::{Clock, Executor, SystemClock},
+        service::{Clock, Executor, SystemClock},
         handle_connection,
         store::{Entry, HashMapStore, Store},
     };
