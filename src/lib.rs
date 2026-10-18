@@ -75,8 +75,8 @@ mod test {
     use tokio::io::{AsyncWrite, BufReader};
 
     use crate::{
-        service::{Clock, Executor, SystemClock},
         handle_connection,
+        service::{Clock, Executor, SystemClock},
         store::{Entry, HashMapStore, Store},
     };
 
