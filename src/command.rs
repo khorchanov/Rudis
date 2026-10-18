@@ -32,6 +32,7 @@ impl Command {
 }
 
 fn try_parse_resp(buffer: &String) -> anyhow::Result<ParseResult> {
+    //TODO: support bytes input
     let mut chars = buffer.chars();
     match chars.nth(0) {
         Some(':') => {
@@ -210,5 +211,35 @@ mod test {
                 leftover: _
             }
         );
+    }
+
+    #[test]
+    fn test_array_nested() {
+        let input = "*3\r\n\
+                  $3\r\nfoo\r\n\
+                  *2\r\n:1\r\n$3\r\nbar\r\n\
+                  :2\r\n"
+            .to_string();
+        let result = dbg!(super::try_parse_resp(&input).unwrap());
+
+        match result.literal {
+            Literal::Array(literals) => {
+                let mut iterator = literals.iter();
+
+                assert_matches!(iterator.next().unwrap(), Literal::String(s) if "foo" == s);
+
+                match iterator.next().unwrap() {
+                    Literal::Array(literals) => {
+                        let mut iterator = literals.iter();
+                        assert_matches!(iterator.next().unwrap(), Literal::Integer(s) if 1 == *s);
+                        assert_matches!(iterator.next().unwrap(), Literal::String(s) if "bar" == *s);
+                    }
+                    _ => assert!(false),
+                }
+
+                assert_matches!(iterator.next().unwrap(), Literal::Integer(s) if 2 == *s);
+            }
+            _ => assert!(false),
+        }
     }
 }
