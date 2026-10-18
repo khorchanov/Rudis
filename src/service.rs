@@ -28,7 +28,7 @@ impl<S: Store, C: Clock> Executor<S, C> {
     pub async fn process_command(&mut self, command: Command) -> anyhow::Result<Option<String>> {
         Ok(match command {
             Command::Ping => Some("PONG".to_string()),
-            Command::Put(key, value) => {
+            Command::Set(key, value) => {
                 self.store
                     .put(key.clone(), Entry::expiring(value.clone()))
                     .await?;

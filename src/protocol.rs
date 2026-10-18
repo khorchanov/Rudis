@@ -1,3 +1,26 @@
+use anyhow::bail;
+
+#[derive(Debug)]
+pub enum Literal {
+    //TODO: avoid String allocation by using &str
+    Null,
+    String(String),
+    Integer(usize),
+    Array(Vec<Literal>),
+}
+
+impl Literal {
+    pub fn as_string(self) -> anyhow::Result<String> {
+        if let Self::String(content) = self {
+            return Ok(content);
+        }
+        bail!("Literal Not a String")
+    }
+}
+
+pub fn try_parse(buffer: &String) -> anyhow::Result<Literal> {
+    try_parse_resp(buffer)?.strip()
+}
 
 #[derive(Debug)]
 struct ParseResult {
@@ -5,12 +28,15 @@ struct ParseResult {
     leftover: Option<String>,
 }
 
-#[derive(Debug)]
-enum Literal {
-    Null,
-    String(String),
-    Integer(usize),
-    Array(Vec<Literal>),
+impl ParseResult {
+    fn strip(self) -> anyhow::Result<Literal> {
+        if let Some(content) = self.leftover
+            && content.is_empty()
+        {
+            return Ok(self.literal);
+        }
+        bail!("Unfinished Literal")
+    }
 }
 
 fn try_parse_resp(buffer: &String) -> anyhow::Result<ParseResult> {
@@ -74,7 +100,7 @@ fn try_parse_resp(buffer: &String) -> anyhow::Result<ParseResult> {
             }
             return Ok(ParseResult {
                 literal: Literal::Array(elements),
-                leftover: leftover,
+                leftover,
             });
         }
         _ => todo!(),
