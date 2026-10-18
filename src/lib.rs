@@ -10,6 +10,7 @@ use crate::{
 pub mod command;
 pub mod service;
 pub mod store;
+mod protocol;
 
 pub async fn handle_connection<S: Store, C: Clock>(
     stream_reader: impl AsyncRead + Unpin,
