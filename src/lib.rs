@@ -189,7 +189,7 @@ mod test {
             clock: SystemClock {},
         };
 
-        let response = send_and_get("PUT name Moez\n", &mut executor).await;
+        let response = send_and_get("SET name Moez\n", &mut executor).await;
         assert_eq!(response, "OK \n");
 
         let response = send_and_get("GET name\n", &mut executor).await;
@@ -203,7 +203,7 @@ mod test {
             clock: SystemClock {},
         };
 
-        let response = send_and_get("PUT name Moez\n", &mut executor).await;
+        let response = send_and_get("SET name Moez\n", &mut executor).await;
         assert_eq!(response, "OK \n");
 
         let response = send_and_get("GET name\n", &mut executor).await;
@@ -226,7 +226,7 @@ mod test {
             clock: clock.clone(),
         };
 
-        let response = send_and_get("PUT name Moez\n", &mut executor).await;
+        let response = send_and_get("SET name Moez\n", &mut executor).await;
         assert_eq!(response, "OK \n");
 
         dbg!(clock.now());

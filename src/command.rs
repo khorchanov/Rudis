@@ -69,7 +69,7 @@ impl Command {
                 _ => bail!("Protocl error, malformed request"),
             }
         }
-        todo!()
+        bail!("Protocl error, malformed request")
     }
 }
 
