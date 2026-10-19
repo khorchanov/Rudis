@@ -1,8 +1,9 @@
 use anyhow::Result;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
 
 use crate::{
     command::Command,
+    protocol::serialize,
     service::{Clock, Executor},
     store::Store,
 };
@@ -23,7 +24,9 @@ pub async fn handle_connection<S: Store, C: Clock>(
     let mut line = String::new();
     loop {
         line.clear();
-        let read_ops = reader.read_line(&mut line).await;
+        let mut buf: Vec<u8> = Vec::with_capacity(4096);
+
+        let read_ops = reader.read_buf(&mut buf).await;
         match read_ops {
             Ok(0) => {
                 println!("Client closed the connection");
@@ -31,22 +34,14 @@ pub async fn handle_connection<S: Store, C: Clock>(
             }
             Err(e) => return Err(e.into()),
             Ok(_) => {
-                if line.trim().is_empty() {
-                    println!("Empty line received");
-                    break;
-                }
-                let command = if let Ok(command) = Command::try_parse(&line) {
+                let command = if let Ok(command) = Command::try_parse_resp(&buf) {
                     command
                 } else {
-                    write(&mut writer, format!("ERR {}\n", 400)).await?;
+                    write(&mut writer, format!("ERR {}\n", 400).into_bytes()).await?;
                     continue;
                 };
-                let processing_result = service.process_command(command).await?;
-                write(
-                    &mut writer,
-                    format!("OK {}\n", processing_result.unwrap_or_default()),
-                )
-                .await?;
+                let processing_result = service.process_command_resp(command).await?;
+                write(&mut writer, serialize(processing_result)).await?;
             }
         }
     }
@@ -55,9 +50,9 @@ pub async fn handle_connection<S: Store, C: Clock>(
 
 async fn write(
     writer: &mut BufWriter<impl AsyncWrite + Unpin>,
-    response: String,
+    response: Vec<u8>,
 ) -> Result<(), anyhow::Error> {
-    writer.write_all(response.into_bytes().as_slice()).await?;
+    writer.write_all(response.as_slice()).await?; //TODO: remove this as slice
     writer.flush().await?;
     Ok(())
 }
@@ -136,8 +131,11 @@ mod test {
         }
     }
 
-    async fn send_and_get<S: Store, C: Clock>(request: &str, store: &mut Executor<S, C>) -> String {
-        let input = Cursor::new(request.as_bytes());
+    async fn send_and_get<S: Store, C: Clock>(
+        request: &[u8],
+        store: &mut Executor<S, C>,
+    ) -> String {
+        let input = Cursor::new(request);
         let reader = BufReader::new(input);
         let writer: TestBuffer = TestBuffer::default();
         let writer_handle = writer.clone();
@@ -178,8 +176,8 @@ mod test {
             store: HashMapStore::default(),
             clock: SystemClock {},
         };
-        let response = send_and_get("PING\n", &mut executor).await;
-        assert_eq!(response, "OK PONG\n");
+        let response = send_and_get(b"*1\r\n$4\r\nPING\r\n", &mut executor).await;
+        assert_eq!(response, "+PONG\r\n");
     }
 
     #[tokio::test]
@@ -189,11 +187,15 @@ mod test {
             clock: SystemClock {},
         };
 
-        let response = send_and_get("SET name Moez\n", &mut executor).await;
-        assert_eq!(response, "OK \n");
+        let response = send_and_get(
+            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
 
-        let response = send_and_get("GET name\n", &mut executor).await;
-        assert_eq!(response, "OK Moez\n");
+        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
+        assert_eq!(response, "$4\r\nMoez\r\n");
     }
 
     #[tokio::test]
@@ -203,17 +205,21 @@ mod test {
             clock: SystemClock {},
         };
 
-        let response = send_and_get("SET name Moez\n", &mut executor).await;
-        assert_eq!(response, "OK \n");
+        let response = send_and_get(
+            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
 
-        let response = send_and_get("GET name\n", &mut executor).await;
-        assert_eq!(response, "OK Moez\n");
+        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
+        assert_eq!(response, "$4\r\nMoez\r\n");
 
-        let response = send_and_get("DEL name\n", &mut executor).await;
-        assert_eq!(response, "OK Moez\n");
+        let response = send_and_get(b"*2\r\n$3\r\nDEL\r\n$4\r\nname\r\n", &mut executor).await;
+        assert_eq!(response, ":1\r\n");
 
-        let response = send_and_get("GET name\n", &mut executor).await;
-        assert_eq!(response, "OK \n");
+        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
+        assert_eq!(response, "$-1\r\n");
     }
 
     #[tokio::test]
@@ -226,15 +232,19 @@ mod test {
             clock: clock.clone(),
         };
 
-        let response = send_and_get("SET name Moez\n", &mut executor).await;
-        assert_eq!(response, "OK \n");
+        let response = send_and_get(
+            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
 
         dbg!(clock.now());
         clock.advance_time_by(Duration::from_mins(10));
         dbg!(clock.now());
 
-        let response = send_and_get("GET name\n", &mut executor).await;
-        assert_eq!(response, "OK \n");
+        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
+        assert_eq!(response, "$-1\r\n");
 
         let result = dbg!(store.get("name").await);
         assert!(matches!(result, Ok(None)));

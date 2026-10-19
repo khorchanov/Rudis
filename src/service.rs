@@ -64,15 +64,15 @@ impl<S: Store, C: Clock> Executor<S, C> {
                     let _ = self.store.delete(&key).await;
                     Literal::NullBulkString
                 }
-                Some(entry) => Literal::String(entry.value),
+                Some(entry) => Literal::BulkString(entry.value),
                 None => Literal::NullBulkString,
             },
             Command::Del(key) => self
                 .store
                 .delete(&key)
                 .await?
-                .map(|entry| Literal::String(entry.value))
-                .unwrap_or_else(|| Literal::Integer(1)), //TODO: return number of elements removed
+                .map(|_| Literal::Integer(1))
+                .unwrap_or_else(|| Literal::Integer(0)), //TODO: return number of elements removed
         })
     }
 }

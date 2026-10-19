@@ -1,24 +1,26 @@
 use crate::protocol::Literal;
 
-pub fn serialize(literal: Literal) -> String {
+//TODO: to clean up
+pub fn serialize(literal: Literal) -> Vec<u8> {
     match literal {
-        Literal::NullBulkString => "$-1\r\n".to_owned(),
-        Literal::NullArray => "*-1\r\n".to_owned(),
-        Literal::String(string) => format!("+{string}\r\n"),
+        Literal::NullBulkString => b"$-1\r\n".to_vec(),
+        Literal::NullArray => b"*-1\r\n".to_vec(),
+        Literal::String(string) => format!("+{string}\r\n").into_bytes(),
         Literal::BulkString(string) => {
             let length = string.len();
-            format!("${length}\r\n{string}\r\n")
+            format!("${length}\r\n{string}\r\n").into_bytes()
         }
-        Literal::Integer(integer) => format!(":{integer}\r\n"),
+        Literal::Integer(integer) => format!(":{integer}\r\n").into_bytes(),
         Literal::Array(literals) => {
-            let length = literals.len();
-            let mut result: Vec<String> = Vec::with_capacity(length);
+            let mut result: Vec<u8> = Vec::new();
+            result.push(b'*');
+            result.extend_from_slice(literals.len().to_string().as_bytes());
+            result.extend_from_slice(b"\r\n");
             for element in literals {
-                let serialized = serialize(element);
-                result.push(serialized);
+                let mut serialized = serialize(element);
+                result.append(&mut serialized);
             }
-            let joined = result.join("");
-            format!("*{length}\r\n{joined}")
+            result
         }
     }
 }

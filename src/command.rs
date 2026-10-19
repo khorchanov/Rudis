@@ -33,7 +33,7 @@ impl Command {
         }
     }
 
-    pub fn try_parse_resp(buffer: &String) -> anyhow::Result<Self> {
+    pub fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<Self> {
         let parsed = protocol::try_parse(buffer)?;
         if let Literal::Array(elements) = parsed {
             let mut iterator = elements.into_iter();
@@ -89,22 +89,22 @@ mod test {
 
     #[test]
     fn resp_parse_ping() {
-        let input = "*1\r\n$4\r\nPING\r\n".to_string();
-        let command = dbg!(Command::try_parse_resp(&input).unwrap());
+        let input = b"*1\r\n$4\r\nPING\r\n";
+        let command = dbg!(Command::try_parse_resp(input).unwrap());
         assert_matches!(command, Command::Ping);
     }
 
     #[test]
     fn resp_parse_get() {
-        let input = "*2\r\n$3\r\nGET\r\n$4\r\nname\r\n".to_string();
-        let command = dbg!(Command::try_parse_resp(&input).unwrap());
+        let input = b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n";
+        let command = dbg!(Command::try_parse_resp(input).unwrap());
         assert_matches!(command, Command::Get(key) if key == "name");
     }
 
     #[test]
     fn resp_parse_put() {
-        let input = "*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$3\r\nbob\r\n".to_string();
-        let command = dbg!(Command::try_parse_resp(&input).unwrap());
+        let input = b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$3\r\nbob\r\n";
+        let command = dbg!(Command::try_parse_resp(input).unwrap());
         assert_matches!(command, Command::Set(key, value) if key == "name" && value =="bob");
     }
 }

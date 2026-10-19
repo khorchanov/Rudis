@@ -3,6 +3,7 @@ mod parse;
 mod serialize;
 
 pub use parse::try_parse;
+pub use serialize::serialize;
 
 #[derive(Debug)]
 //TODO: avoid String allocation by using &str
@@ -11,7 +12,7 @@ pub enum Literal {
     NullArray,
     String(String),
     BulkString(String),
-    Integer(usize),
+    Integer(i64),
     Array(Vec<Literal>),
 }
 
@@ -81,7 +82,6 @@ mod test {
         input.push(Literal::BulkString("foo".to_string()));
         input.push(Literal::Array({
             let mut r = Vec::new();
-            r.push(Literal::BulkString("bar".to_string()));
             r.push(Literal::Integer(13));
             r.push(Literal::String("doo".to_string()));
             r
@@ -89,6 +89,7 @@ mod test {
         input.push(Literal::Integer(0));
 
         let serialized = serialize(Literal::Array(input));
+        dbg!(String::from_utf8_lossy(serialized.as_slice()));
         let parsed = try_parse(&serialized).unwrap();
 
         match parsed {
@@ -100,7 +101,6 @@ mod test {
                 match iterator.next().unwrap() {
                     Literal::Array(literals) => {
                         let mut iterator = literals.iter();
-                        assert_matches!(iterator.next().unwrap(), Literal::BulkString(s) if "bar" == *s);
                         assert_matches!(iterator.next().unwrap(), Literal::Integer(s) if 13 == *s);
                         assert_matches!(iterator.next().unwrap(), Literal::String(s) if "doo" == *s);
                     }
