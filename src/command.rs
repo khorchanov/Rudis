@@ -6,7 +6,7 @@ use crate::protocol::{self, Literal};
 
 #[derive(Debug)]
 pub enum Command {
-    Ping,
+    Ping,//TODO: can have an optional args
     Set(String, String),
     Get(String),
     Del(String),
