@@ -5,11 +5,12 @@ use anyhow::{Ok, anyhow, bail};
 use crate::protocol::{self, Literal};
 
 #[derive(Debug)]
+//TODO: add missing commands
 pub enum Command {
     Ping,//TODO: can have an optional args
     Set(String, String),
     Get(String),
-    Del(String),
+    Del(String), //TODO: can have many arguments
 }
 
 impl Command {

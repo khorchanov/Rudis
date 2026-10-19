@@ -2,7 +2,6 @@ use anyhow::bail;
 
 use super::Literal;
 
-
 pub fn try_parse(buffer: &String) -> anyhow::Result<Literal> {
     try_parse_resp(buffer)?.strip()
 }
@@ -51,7 +50,7 @@ fn try_parse_resp(buffer: &String) -> anyhow::Result<ParseResult> {
             let content_size: isize = buffer.get(1..size_end).unwrap().parse().unwrap();
             if content_size < 0 {
                 return Ok(ParseResult {
-                    literal: Literal::Null,
+                    literal: Literal::NullBulkString,
                     leftover: None,
                 });
             }
@@ -71,7 +70,7 @@ fn try_parse_resp(buffer: &String) -> anyhow::Result<ParseResult> {
             let content_size: isize = buffer.get(1..count_end).unwrap().parse().unwrap();
             if content_size < 0 {
                 return Ok(ParseResult {
-                    literal: Literal::Null,
+                    literal: Literal::NullArray,
                     leftover: None,
                 });
             }
@@ -139,7 +138,7 @@ use super::{ParseResult};
         assert!(matches!(
             result,
             ParseResult {
-                literal: Literal::Null,
+                literal: Literal::NullBulkString,
                 leftover: _
             }
         ));
@@ -181,7 +180,7 @@ use super::{ParseResult};
         assert_matches!(
             result,
             ParseResult {
-                literal: Literal::Null,
+                literal: Literal::NullArray,
                 leftover: _
             }
         );

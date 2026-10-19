@@ -62,17 +62,17 @@ impl<S: Store, C: Clock> Executor<S, C> {
             Command::Get(key) => match self.store.get(key.as_str()).await? {
                 Some(entry) if self.clock.now() > entry.expires_at => {
                     let _ = self.store.delete(&key).await;
-                    Literal::Null
+                    Literal::NullBulkString
                 }
                 Some(entry) => Literal::String(entry.value),
-                None => Literal::Null,
+                None => Literal::NullBulkString,
             },
             Command::Del(key) => self
                 .store
                 .delete(&key)
                 .await?
                 .map(|entry| Literal::String(entry.value))
-                .unwrap_or_else(|| Literal::Null),
+                .unwrap_or_else(|| Literal::Integer(1)),//TODO: return number of elements removed
         })
     }
 }

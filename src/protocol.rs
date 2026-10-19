@@ -1,13 +1,16 @@
 use anyhow::bail;
-pub mod parse;
+mod parse;
+mod serialize;
 
 pub use parse::try_parse;
 
 #[derive(Debug)]
+//TODO: avoid String allocation by using &str
 pub enum Literal {
-    //TODO: avoid String allocation by using &str
-    Null,           //TODO: differentiate between null array and null bulk
-    String(String), //TODO: Differentiate between bulk String and simple string
+    NullBulkString,
+    NullArray,
+    String(String),
+    BulkString(String),
     Integer(usize),
     Array(Vec<Literal>),
 }
