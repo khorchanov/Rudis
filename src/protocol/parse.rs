@@ -19,33 +19,33 @@ impl ParseResult {
         {
             bail!("Unfinished Literal")
         }
-        return Ok(self.literal);
+        Ok(self.literal)
     }
 }
 
 fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<ParseResult> {
     //TODO: support bytes input
-    match buffer.get(0) {
+    match buffer.first() {
         Some(b':') => {
-            let end = find_crlf(&buffer).unwrap();
+            let end = find_crlf(buffer).unwrap();
             let content = parse_number(buffer.get(1..end))?;
             let leftover = buffer.get(end + 2..).map(|bytes| bytes.to_vec());
-            return Ok(ParseResult {
+            Ok(ParseResult {
                 literal: Literal::Integer(content),
                 leftover,
-            });
+            })
         }
         Some(b'+') => {
-            let end = find_crlf(&buffer).unwrap();
+            let end = find_crlf(buffer).unwrap();
             let content = parse_string(buffer.get(1..end))?;
             let leftover = buffer.get(end + 2..).map(|bytes| bytes.to_vec());
-            return Ok(ParseResult {
+            Ok(ParseResult {
                 literal: Literal::String(content.to_owned()),
                 leftover,
-            });
+            })
         }
         Some(b'$') => {
-            let size_end = find_crlf(&buffer).unwrap();
+            let size_end = find_crlf(buffer).unwrap();
             let content_size = parse_number(buffer.get(1..size_end))?;
             if content_size < 0 {
                 return Ok(ParseResult {
@@ -58,13 +58,13 @@ fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<ParseResult> {
                 parse_string(buffer.get(content_start..content_start + content_size as usize))?;
             let element_end = content_start + content_size as usize + 2;
             let leftover = buffer.get(element_end..).map(|bytes| bytes.to_vec());
-            return Ok(ParseResult {
+            Ok(ParseResult {
                 literal: Literal::BulkString(content),
                 leftover,
-            });
+            })
         }
         Some(b'*') => {
-            let count_end = find_crlf(&buffer).unwrap();
+            let count_end = find_crlf(buffer).unwrap();
             let content_size = parse_number(buffer.get(1..count_end))?;
             if content_size < 0 {
                 return Ok(ParseResult {
@@ -80,10 +80,10 @@ fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<ParseResult> {
                 elements.push(result.literal);
                 leftover = result.leftover;
             }
-            return Ok(ParseResult {
+            Ok(ParseResult {
                 literal: Literal::Array(elements),
                 leftover,
-            });
+            })
         }
         Some(e) => {
             dbg!(*e as char);

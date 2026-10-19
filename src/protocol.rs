@@ -17,7 +17,7 @@ pub enum Literal {
 }
 
 impl Literal {
-    pub fn as_string(self) -> anyhow::Result<String> {
+    pub fn into_string(self) -> anyhow::Result<String> {
         match self {
             Literal::String(content) | Literal::BulkString(content) => Ok(content),
             _ => bail!("Literal Not a String"),
@@ -29,10 +29,7 @@ impl Literal {
 mod test {
     use std::assert_matches;
 
-    use crate::protocol::{
-        serialize::{self, serialize},
-        try_parse,
-    };
+    use crate::protocol::{serialize::serialize, try_parse};
 
     use super::Literal;
 
