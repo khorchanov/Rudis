@@ -15,11 +15,11 @@ struct ParseResult {
 impl ParseResult {
     fn strip(self) -> anyhow::Result<Literal> {
         if let Some(content) = self.leftover
-            && content.is_empty()
+            && !content.is_empty()
         {
-            return Ok(self.literal);
+            bail!("Unfinished Literal")
         }
-        bail!("Unfinished Literal")
+        return Ok(self.literal);
     }
 }
 
@@ -61,7 +61,7 @@ fn try_parse_resp(buffer: &String) -> anyhow::Result<ParseResult> {
             let element_end = content_start + content_size as usize + 2;
             let leftover = buffer.get(element_end..).map(String::from);
             return Ok(ParseResult {
-                literal: Literal::String(content.to_owned()),
+                literal: Literal::BulkString(content.to_owned()),
                 leftover,
             });
         }
@@ -98,7 +98,7 @@ mod test {
 
     use super::super::Literal;
 
-use super::{ParseResult};
+    use super::ParseResult;
 
     #[test]
     fn test_string() {
@@ -120,7 +120,7 @@ use super::{ParseResult};
     fn test_bulk_string() {
         let result = dbg!(super::try_parse_resp(&"$5\r\nhello\r\n".to_string()).unwrap());
         assert!(
-            matches!(result, ParseResult{literal : Literal::String(ref s), leftover:_} if s == "hello")
+            matches!(result, ParseResult{literal : Literal::BulkString(ref s), leftover:_} if s == "hello")
         );
     }
 
@@ -128,7 +128,7 @@ use super::{ParseResult};
     fn test_empty_string() {
         let result = dbg!(super::try_parse_resp(&"$0\r\n\r\n".to_string()).unwrap());
         assert!(
-            matches!(result, ParseResult{literal : Literal::String(ref s), leftover:_} if s == "")
+            matches!(result, ParseResult{literal : Literal::BulkString(ref s), leftover:_} if s == "")
         );
     }
 
@@ -149,7 +149,7 @@ use super::{ParseResult};
         let result =
             super::try_parse_resp(&"$25\r\nhello\r\nmy brother whussup\r\n".to_string()).unwrap();
         assert!(
-            matches!(result, ParseResult {literal:  Literal::String(ref s), leftover:_} if s == "hello\r\nmy brother whussup")
+            matches!(result, ParseResult {literal:  Literal::BulkString(ref s), leftover:_} if s == "hello\r\nmy brother whussup")
         );
     }
 
@@ -161,8 +161,8 @@ use super::{ParseResult};
         match result.literal {
             Literal::Array(literals) => {
                 let mut iterator = literals.iter();
-                assert_matches!(iterator.next().unwrap(), Literal::String(s) if "foo" == s);
-                assert_matches!(iterator.next().unwrap(), Literal::String(s) if "bar" == s);
+                assert_matches!(iterator.next().unwrap(), Literal::BulkString(s) if "foo" == s);
+                assert_matches!(iterator.next().unwrap(), Literal::BulkString(s) if "bar" == s);
             }
             _ => assert!(false),
         }
@@ -199,13 +199,13 @@ use super::{ParseResult};
             Literal::Array(literals) => {
                 let mut iterator = literals.iter();
 
-                assert_matches!(iterator.next().unwrap(), Literal::String(s) if "foo" == s);
+                assert_matches!(iterator.next().unwrap(), Literal::BulkString(s) if "foo" == s);
 
                 match iterator.next().unwrap() {
                     Literal::Array(literals) => {
                         let mut iterator = literals.iter();
                         assert_matches!(iterator.next().unwrap(), Literal::Integer(s) if 1 == *s);
-                        assert_matches!(iterator.next().unwrap(), Literal::String(s) if "bar" == *s);
+                        assert_matches!(iterator.next().unwrap(), Literal::BulkString(s) if "bar" == *s);
                     }
                     _ => assert!(false),
                 }

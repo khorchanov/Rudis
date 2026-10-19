@@ -72,7 +72,7 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 .delete(&key)
                 .await?
                 .map(|entry| Literal::String(entry.value))
-                .unwrap_or_else(|| Literal::Integer(1)),//TODO: return number of elements removed
+                .unwrap_or_else(|| Literal::Integer(1)), //TODO: return number of elements removed
         })
     }
 }

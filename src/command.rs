@@ -7,7 +7,7 @@ use crate::protocol::{self, Literal};
 #[derive(Debug)]
 //TODO: add missing commands
 pub enum Command {
-    Ping,//TODO: can have an optional args
+    Ping, //TODO: can have an optional args
     Set(String, String),
     Get(String),
     Del(String), //TODO: can have many arguments
@@ -38,7 +38,7 @@ impl Command {
         if let Literal::Array(elements) = parsed {
             let mut iterator = elements.into_iter();
             match iterator.next() {
-                Some(Literal::String(command)) => match command.as_str() {
+                Some(Literal::BulkString(command)) => match command.as_str() {
                     "PING" => return Ok(Command::Ping),
                     "GET" => {
                         let key = iterator
