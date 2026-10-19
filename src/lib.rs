@@ -1,17 +1,15 @@
 use anyhow::Result;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
 
-use crate::{
-    command::Command,
-    protocol::serialize,
-    service::{Clock, Executor},
-    store::Store,
-};
+use crate::{command::Command, protocol::serialize, service::Clock, store::Store};
 
-pub mod command;
+mod command;
 mod protocol;
-pub mod service;
-pub mod store;
+mod service;
+mod store;
+
+pub use service::{Executor, SystemClock};
+pub use store::HashMapStore;
 
 pub async fn handle_connection<S: Store, C: Clock>(
     stream_reader: impl AsyncRead + Unpin,
@@ -25,9 +23,7 @@ pub async fn handle_connection<S: Store, C: Clock>(
     loop {
         line.clear();
         let mut buf: Vec<u8> = Vec::with_capacity(4096);
-
-        let read_ops = reader.read_buf(&mut buf).await;
-        match read_ops {
+        match reader.read_buf(&mut buf).await {
             Ok(0) => {
                 println!("Client closed the connection");
                 break;
@@ -37,18 +33,18 @@ pub async fn handle_connection<S: Store, C: Clock>(
                 let command = if let Ok(command) = Command::try_parse_resp(&buf) {
                     command
                 } else {
-                    write(&mut writer, format!("ERR {}\n", 400).into_bytes()).await?;
+                    write_and_flush(&mut writer, format!("ERR {}\n", 400).into_bytes()).await?;
                     continue;
                 };
                 let processing_result = service.process_command_resp(command).await?;
-                write(&mut writer, serialize(processing_result)).await?;
+                write_and_flush(&mut writer, serialize(processing_result)).await?;
             }
         }
     }
     Ok(())
 }
 
-async fn write(
+async fn write_and_flush(
     writer: &mut BufWriter<impl AsyncWrite + Unpin>,
     response: Vec<u8>,
 ) -> Result<(), anyhow::Error> {

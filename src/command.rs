@@ -46,10 +46,10 @@ impl Command {
                     }
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
-                _ => bail!("Protocl error, malformed request"),
+                _ => bail!("Protocl error: Expected a first BulkString with the command"),
             }
         }
-        bail!("Protocl error, malformed request")
+        bail!("Protocl error, Request should be in a form of an array")
     }
 }
 

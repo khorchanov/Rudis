@@ -1,11 +1,7 @@
 use tokio::net::TcpListener;
 
 use anyhow::Result;
-use rudis::{
-    handle_connection,
-    service::{Executor, SystemClock},
-    store::HashMapStore,
-};
+use rudis::{Executor, HashMapStore, SystemClock, handle_connection};
 
 #[tokio::main]
 async fn main() -> Result<()> {
