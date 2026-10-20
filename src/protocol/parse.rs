@@ -3,7 +3,6 @@ use super::Literal;
 /// One shot parse of the buffer and return processed bytes (buffer could need more passes to parse next)
 /// Returns Ok(None) if data is just incomplete
 /// Returns Error if wrong format or protocol error
-
 pub fn try_parse_resp(buf: &[u8]) -> anyhow::Result<Option<(Literal, usize)>> {
     let Some(&prefix) = buf.first() else {
         return Ok(None);
