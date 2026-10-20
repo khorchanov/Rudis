@@ -12,26 +12,28 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<Self> {
-        let parsed = protocol::try_parse(buffer)?;
-        if let Literal::Array(elements) = parsed {
+    pub fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<Option<(Self, usize)>> {
+        let Some((literal, bytes_processed)) = protocol::try_parse_resp(buffer)? else {
+            return Ok(None);
+        };
+        if let Literal::Array(elements) = literal {
             let mut iterator = elements.into_iter();
-            match iterator.next() {
+            let result = match iterator.next() {
                 Some(Literal::BulkString(command)) => match command.as_str() {
-                    "PING" => return Ok(Command::Ping),
+                    "PING" => Command::Ping,
                     "GET" => {
                         let key = iterator
                             .next()
                             .ok_or_else(|| anyhow!("Protocol Error"))?
                             .into_string()?;
-                        return Ok(Command::Get(key));
+                        Command::Get(key)
                     }
                     "DEL" => {
                         let key = iterator
                             .next()
                             .ok_or_else(|| anyhow!("Protocol Error"))?
                             .into_string()?;
-                        return Ok(Command::Del(key));
+                        Command::Del(key)
                     }
                     "SET" => {
                         let key = iterator
@@ -42,12 +44,13 @@ impl Command {
                             .next()
                             .ok_or_else(|| anyhow!("Protocol Error"))?
                             .into_string()?;
-                        return Ok(Command::Set(key, value)); //TODO: support putting an integer
+                        Command::Set(key, value) //TODO: support putting an integer
                     }
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),
-            }
+            };
+            return Ok(Some((result, bytes_processed)));
         }
         bail!("Protocl error, Request should be in a form of an array")
     }
@@ -62,21 +65,21 @@ mod test {
     #[test]
     fn resp_parse_ping() {
         let input = b"*1\r\n$4\r\nPING\r\n";
-        let command = dbg!(Command::try_parse_resp(input).unwrap());
-        assert_matches!(command, Command::Ping);
+        let result = dbg!(Command::try_parse_resp(input).unwrap());
+        assert_matches!(result, Some((Command::Ping, bytes)) if bytes == input.len());
     }
 
     #[test]
     fn resp_parse_get() {
         let input = b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n";
-        let command = dbg!(Command::try_parse_resp(input).unwrap());
-        assert_matches!(command, Command::Get(key) if key == "name");
+        let result = dbg!(Command::try_parse_resp(input).unwrap());
+        assert_matches!(result, Some((Command::Get(key), bytes)) if key == "name" && bytes == input.len());
     }
 
     #[test]
     fn resp_parse_put() {
         let input = b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$3\r\nbob\r\n";
-        let command = dbg!(Command::try_parse_resp(input).unwrap());
-        assert_matches!(command, Command::Set(key, value) if key == "name" && value =="bob");
+        let result = dbg!(Command::try_parse_resp(input).unwrap());
+        assert_matches!(result, Some((Command::Set(key, value), bytes)) if key == "name" && value =="bob" && bytes == input.len());
     }
 }

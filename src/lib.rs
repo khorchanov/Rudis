@@ -20,9 +20,9 @@ pub async fn handle_connection<S: Store, C: Clock>(
     let mut reader = BufReader::new(stream_reader);
     let mut writer = BufWriter::new(stream_writer);
     let mut line = String::new();
+    let mut buf: Vec<u8> = Vec::with_capacity(4096);
     loop {
         line.clear();
-        let mut buf: Vec<u8> = Vec::with_capacity(4096);
         match reader.read_buf(&mut buf).await {
             Ok(0) => {
                 println!("Client closed the connection");
@@ -30,14 +30,21 @@ pub async fn handle_connection<S: Store, C: Clock>(
             }
             Err(e) => return Err(e.into()),
             Ok(_) => {
-                let command = if let Ok(command) = Command::try_parse_resp(&buf) {
-                    command
-                } else {
-                    write_and_flush(&mut writer, format!("ERR {}\n", 400).into_bytes()).await?;
-                    continue;
-                };
-                let processing_result = service.process_command_resp(command).await?;
-                write_and_flush(&mut writer, serialize(processing_result)).await?;
+                loop {
+                    match Command::try_parse_resp(&buf) {
+                        Ok(Some((command, bytes_processed))) => {
+                            buf.drain(..bytes_processed);
+                            let processing_result = service.process_command_resp(command).await?; //TODO graceful error handling needed here
+                            write_and_flush(&mut writer, serialize(processing_result)).await?;
+                        }
+                        Ok(None) => break,
+                        Err(e) => {
+                            write_and_flush(&mut writer, format!("-ERR {e}\r\n").into_bytes())
+                                .await?;
+                            return Ok(());
+                        }
+                    }
+                }
             }
         }
     }

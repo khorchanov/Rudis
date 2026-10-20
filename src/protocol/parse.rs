@@ -1,95 +1,61 @@
-use anyhow::bail;
-
 use super::Literal;
 
-pub fn try_parse(buffer: &[u8]) -> anyhow::Result<Literal> {
-    try_parse_resp(buffer)?.strip()
-}
+/// One shot parse of the buffer and return processed bytes (buffer could need more passes to parse next)
+/// Returns Ok(None) if data is just incomplete
+/// Returns Error if wrong format or protocol error
 
-#[derive(Debug)]
-struct ParseResult {
-    literal: Literal,
-    leftover: Option<Vec<u8>>,
-}
+pub fn try_parse_resp(buf: &[u8]) -> anyhow::Result<Option<(Literal, usize)>> {
+    let Some(&prefix) = buf.first() else {
+        return Ok(None);
+    };
+    let Some(end) = find_crlf(buf) else {
+        return Ok(None);
+    };
+    let header = end + 2;
 
-impl ParseResult {
-    fn strip(self) -> anyhow::Result<Literal> {
-        if let Some(content) = self.leftover
-            && !content.is_empty()
-        {
-            bail!("Unfinished Literal")
+    match prefix {
+        b':' => {
+            let n = parse_number(buf.get(1..end))?;
+            Ok(Some((Literal::Integer(n), header)))
         }
-        Ok(self.literal)
-    }
-}
-
-fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<ParseResult> {
-    //TODO: support bytes input
-    match buffer.first() {
-        Some(b':') => {
-            let end = find_crlf(buffer).unwrap();
-            let content = parse_number(buffer.get(1..end))?;
-            let leftover = buffer.get(end + 2..).map(|bytes| bytes.to_vec());
-            Ok(ParseResult {
-                literal: Literal::Integer(content),
-                leftover,
-            })
+        b'+' => {
+            let s = parse_string(buf.get(1..end))?;
+            Ok(Some((Literal::String(s), header)))
         }
-        Some(b'+') => {
-            let end = find_crlf(buffer).unwrap();
-            let content = parse_string(buffer.get(1..end))?;
-            let leftover = buffer.get(end + 2..).map(|bytes| bytes.to_vec());
-            Ok(ParseResult {
-                literal: Literal::String(content.to_owned()),
-                leftover,
-            })
-        }
-        Some(b'$') => {
-            let size_end = find_crlf(buffer).unwrap();
-            let content_size = parse_number(buffer.get(1..size_end))?;
-            if content_size < 0 {
-                return Ok(ParseResult {
-                    literal: Literal::NullBulkString,
-                    leftover: None,
-                });
+        b'$' => {
+            let len = parse_number(buf.get(1..end))?;
+            if len == -1 {
+                return Ok(Some((Literal::NullBulkString, header)));
             }
-            let content_start = size_end + 2;
-            let content =
-                parse_string(buffer.get(content_start..content_start + content_size as usize))?;
-            let element_end = content_start + content_size as usize + 2;
-            let leftover = buffer.get(element_end..).map(|bytes| bytes.to_vec());
-            Ok(ParseResult {
-                literal: Literal::BulkString(content),
-                leftover,
-            })
-        }
-        Some(b'*') => {
-            let count_end = find_crlf(buffer).unwrap();
-            let content_size = parse_number(buffer.get(1..count_end))?;
-            if content_size < 0 {
-                return Ok(ParseResult {
-                    literal: Literal::NullArray,
-                    leftover: None,
-                });
+            let len = usize::try_from(len)?;
+            let total = header + len + 2;
+            if buf.len() < total {
+                return Ok(None);
             }
-            let elements_start = count_end + 2;
-            let mut leftover = buffer.get(elements_start..).map(|bytes| bytes.to_vec());
+            if &buf[header + len..total] != b"\r\n" {
+                anyhow::bail!("bulk string missing CRLF");
+            }
+            let s = parse_string(buf.get(header..header + len))?;
+            Ok(Some((Literal::BulkString(s), total)))
+        }
+        b'*' => {
+            let count = parse_number(buf.get(1..end))?;
+            if count == -1 {
+                return Ok(Some((Literal::NullArray, header)));
+            }
+            let count = usize::try_from(count)?;
+            let mut pos = header;
             let mut elements = Vec::new();
-            for _ in 0..content_size {
-                let result = try_parse_resp(&leftover.unwrap())?; //TODO: can we make this async and fire tokio spawn right away ?
-                elements.push(result.literal);
-                leftover = result.leftover;
+            for _ in 0..count {
+                let Some((lit, used)) = try_parse_resp(&buf[pos..])? else {
+                    return Ok(None);
+                };
+                elements.push(lit);
+                pos += used;
             }
-            Ok(ParseResult {
-                literal: Literal::Array(elements),
-                leftover,
-            })
+            Ok(Some((Literal::Array(elements), pos)))
         }
-        Some(e) => {
-            dbg!(*e as char);
-            todo!()
-        }
-        _ => todo!(),
+        other => anyhow::bail!("unknown type byte: {}", other as char),
     }
 }
 
@@ -114,65 +80,51 @@ mod test {
 
     use super::super::Literal;
 
-    use super::ParseResult;
-
     #[test]
     fn test_string() {
         let result = dbg!(super::try_parse_resp(b"+OK\r\n").unwrap());
-        assert!(
-            matches!(result, ParseResult{literal : Literal::String(ref s), leftover:_} if s == "OK")
-        );
+        assert!(matches!(result, Some((Literal::String(ref s), _)) if s == "OK"));
     }
 
     #[test]
     fn test_integer() {
         let result = dbg!(super::try_parse_resp(b":123456789\r\n").unwrap());
-        assert!(
-            matches!(result, ParseResult{literal : Literal::Integer(ref s), leftover:_} if s == &123456789i64)
-        );
+        assert!(matches!(result, Some((Literal::Integer(ref s), _)) if s == &123456789i64));
     }
 
     #[test]
     fn test_bulk_string() {
         let result = dbg!(super::try_parse_resp(b"$5\r\nhello\r\n").unwrap());
-        assert!(
-            matches!(result, ParseResult{literal : Literal::BulkString(ref s), leftover:_} if s == "hello")
-        );
+        assert!(matches!(result, Some((Literal::BulkString(ref s), _)) if s == "hello"));
     }
 
     #[test]
     fn test_empty_string() {
         let result = dbg!(super::try_parse_resp(b"$0\r\n\r\n").unwrap());
-        assert!(
-            matches!(result, ParseResult{literal : Literal::BulkString(ref s), leftover:_} if s == "")
-        );
+        assert!(matches!(result, Some((Literal::BulkString(ref s), _)) if s == ""));
     }
 
     #[test]
     fn test_null_string() {
         let result = dbg!(super::try_parse_resp(b"$-1\r\n").unwrap());
-        assert!(matches!(
-            result,
-            ParseResult {
-                literal: Literal::NullBulkString,
-                leftover: _
-            }
-        ));
+        assert!(matches!(result, Some((Literal::NullBulkString, _))));
     }
 
     #[test]
     fn test_bulk_long_string() {
         let result = super::try_parse_resp(b"$25\r\nhello\r\nmy brother whussup\r\n").unwrap();
         assert!(
-            matches!(result, ParseResult {literal:  Literal::BulkString(ref s), leftover:_} if s == "hello\r\nmy brother whussup")
+            matches!(result, Some((Literal::BulkString(ref s), _)) if s == "hello\r\nmy brother whussup")
         );
     }
 
     #[test]
     fn test_array() {
-        let result = dbg!(super::try_parse_resp(b"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n").unwrap());
+        let literal = dbg!(super::try_parse_resp(b"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n").unwrap())
+            .unwrap()
+            .0;
 
-        match result.literal {
+        match literal {
             Literal::Array(literals) => {
                 let mut iterator = literals.iter();
                 assert_matches!(iterator.next().unwrap(), Literal::BulkString(s) if "foo" == s);
@@ -184,20 +136,14 @@ mod test {
 
     #[test]
     fn test_array_empty() {
-        let result = dbg!(super::try_parse_resp(b"*0\r\n").unwrap());
+        let literal = dbg!(super::try_parse_resp(b"*0\r\n").unwrap()).unwrap().0;
 
-        assert_matches!(result.literal, Literal::Array(literals) if literals.is_empty())
+        assert_matches!(literal, Literal::Array(literals) if literals.is_empty())
     }
     #[test]
     fn test_array_null() {
-        let result = dbg!(super::try_parse_resp(b"*-1\r\n").unwrap());
-        assert_matches!(
-            result,
-            ParseResult {
-                literal: Literal::NullArray,
-                leftover: _
-            }
-        );
+        let result = dbg!(super::try_parse_resp(b"*-1\r\n").unwrap()).unwrap().0;
+        assert_matches!(result, Literal::NullArray,);
     }
 
     #[test]
@@ -206,9 +152,9 @@ mod test {
                   $3\r\nfoo\r\n\
                   *2\r\n:1\r\n$3\r\nbar\r\n\
                   :2\r\n";
-        let result = dbg!(super::try_parse_resp(input).unwrap());
+        let literal = dbg!(super::try_parse_resp(input).unwrap()).unwrap().0;
 
-        match result.literal {
+        match literal {
             Literal::Array(literals) => {
                 let mut iterator = literals.iter();
 

@@ -2,7 +2,7 @@ use anyhow::bail;
 mod parse;
 mod serialize;
 
-pub use parse::try_parse;
+pub use parse::try_parse_resp;
 pub use serialize::serialize;
 
 #[derive(Debug)]
@@ -29,14 +29,17 @@ impl Literal {
 mod test {
     use std::assert_matches;
 
-    use crate::protocol::{serialize::serialize, try_parse};
+    use crate::protocol::{serialize::serialize, try_parse_resp};
 
     use super::Literal;
 
     #[test]
     fn test_full_round_null_bulk_string() {
         assert_matches!(
-            try_parse(dbg!(&serialize(Literal::NullBulkString))).unwrap(),
+            try_parse_resp(dbg!(&serialize(Literal::NullBulkString)))
+                .unwrap()
+                .unwrap()
+                .0,
             Literal::NullBulkString
         );
     }
@@ -44,7 +47,10 @@ mod test {
     #[test]
     fn test_full_round_null_array() {
         assert_matches!(
-            try_parse(dbg!(&serialize(Literal::NullArray))).unwrap(),
+            try_parse_resp(dbg!(&serialize(Literal::NullArray)))
+                .unwrap()
+                .unwrap()
+                .0,
             Literal::NullArray
         );
     }
@@ -52,7 +58,7 @@ mod test {
     #[test]
     fn test_full_round_string() {
         assert_matches!(
-            try_parse(dbg!(&serialize(Literal::String("random".to_string())))).unwrap(),
+            try_parse_resp(dbg!(&serialize(Literal::String("random".to_string())))).unwrap().unwrap().0,
             Literal::String(s) if s == "random"
         );
     }
@@ -60,7 +66,7 @@ mod test {
     #[test]
     fn test_full_round_bulk_string() {
         assert_matches!(
-            dbg!(try_parse(dbg!(&serialize(Literal::BulkString("random with \r\n spaces !".to_string())))).unwrap()),
+            dbg!(try_parse_resp(dbg!(&serialize(Literal::BulkString("random with \r\n spaces !".to_string())))).unwrap()).unwrap().0,
             Literal::BulkString(s) if s == "random with \r\n spaces !"
         );
     }
@@ -68,7 +74,7 @@ mod test {
     #[test]
     fn test_full_round_integer() {
         assert_matches!(
-            try_parse(dbg!(&serialize(Literal::Integer(123456)))).unwrap(),
+            try_parse_resp(dbg!(&serialize(Literal::Integer(123456)))).unwrap().unwrap().0,
             Literal::Integer(s) if s == 123456
         );
     }
@@ -87,7 +93,7 @@ mod test {
 
         let serialized = serialize(Literal::Array(input));
         dbg!(String::from_utf8_lossy(serialized.as_slice()));
-        let parsed = try_parse(&serialized).unwrap();
+        let parsed = try_parse_resp(&serialized).unwrap().unwrap().0;
 
         match parsed {
             Literal::Array(literals) => {
