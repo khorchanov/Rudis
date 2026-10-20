@@ -28,7 +28,8 @@ pub struct Executor<S: Store, C: Clock> {
 impl<S: Store, C: Clock> Executor<S, C> {
     pub async fn process_command_resp(&mut self, command: Command) -> anyhow::Result<Literal> {
         Ok(match command {
-            Command::Ping => Literal::String("PONG".to_string()),
+            Command::Ping(Some(message)) | Command::Echo(message) => Literal::BulkString(message),
+            Command::Ping(None) => Literal::String("PONG".to_string()),
             Command::Set(key, value) => {
                 self.store
                     .put(key.clone(), Entry::expiring(value.clone()))

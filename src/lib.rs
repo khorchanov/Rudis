@@ -184,6 +184,16 @@ mod test {
     }
 
     #[tokio::test]
+    async fn test_echo() {
+        let mut executor = Executor {
+            store: HashMapStore::default(),
+            clock: SystemClock {},
+        };
+        let response = send_and_get(b"*2\r\n$4\r\nECHO\r\n$3\r\nmsg\r\n", &mut executor).await;
+        assert_eq!(response, "$3\r\nmsg\r\n");
+    }
+
+    #[tokio::test]
     async fn should_store_and_read() {
         let mut executor = Executor {
             store: HashMapStore::default(),

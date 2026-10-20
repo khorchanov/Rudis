@@ -5,7 +5,8 @@ use crate::protocol::{self, Literal};
 #[derive(Debug)]
 //TODO: add missing commands
 pub enum Command {
-    Ping, //TODO: can have an optional args
+    Ping(Option<String>),
+    Echo(String),
     Set(String, String),
     Get(String),
     Del(String), //TODO: can have many arguments
@@ -20,7 +21,17 @@ impl Command {
             let mut iterator = elements.into_iter();
             let result = match iterator.next() {
                 Some(Literal::BulkString(command)) => match command.as_str() {
-                    "PING" => Command::Ping,
+                    "PING" => {
+                        let args = iterator.next().map(|lit| lit.into_string()).transpose()?;
+                        Command::Ping(args)
+                    }
+                    "ECHO" => {
+                        let message = iterator
+                            .next()
+                            .ok_or_else(|| anyhow!("Protocol Error"))?
+                            .into_string()?;
+                        Command::Echo(message)
+                    }
                     "GET" => {
                         let key = iterator
                             .next()
@@ -66,7 +77,14 @@ mod test {
     fn resp_parse_ping() {
         let input = b"*1\r\n$4\r\nPING\r\n";
         let result = dbg!(Command::try_parse_resp(input).unwrap());
-        assert_matches!(result, Some((Command::Ping, bytes)) if bytes == input.len());
+        assert_matches!(result, Some((Command::Ping(None), bytes)) if bytes == input.len());
+    }
+
+    #[test]
+    fn resp_parse_ping_echo() {
+        let input = b"*2\r\n$4\r\nPING\r\n$3\r\nmsg\r\n";
+        let result = dbg!(Command::try_parse_resp(input).unwrap());
+        assert_matches!(result, Some((Command::Ping(Some(msg)), bytes)) if msg == "msg" && bytes == input.len());
     }
 
     #[test]
