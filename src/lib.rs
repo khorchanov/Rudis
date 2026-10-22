@@ -183,6 +183,16 @@ mod test {
         assert_eq!(response, "+PONG\r\n");
     }
 
+        #[tokio::test]
+    async fn test_multiple_ping() {
+        let mut executor = Executor {
+            store: HashMapStore::default(),
+            clock: SystemClock {},
+        };
+        let response = send_and_get(b"*2\r\n$4\r\nPING\r\n$3\r\nmsg\r\n*1\r\n$4\r\nPING\r\n", &mut executor).await;
+        assert_eq!(response, "$3\r\nmsg\r\n+PONG\r\n");
+    }
+
     #[tokio::test]
     async fn test_echo() {
         let mut executor = Executor {
