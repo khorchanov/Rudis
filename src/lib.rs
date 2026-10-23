@@ -183,13 +183,17 @@ mod test {
         assert_eq!(response, "+PONG\r\n");
     }
 
-        #[tokio::test]
+    #[tokio::test]
     async fn test_multiple_ping() {
         let mut executor = Executor {
             store: HashMapStore::default(),
             clock: SystemClock {},
         };
-        let response = send_and_get(b"*2\r\n$4\r\nPING\r\n$3\r\nmsg\r\n*1\r\n$4\r\nPING\r\n", &mut executor).await;
+        let response = send_and_get(
+            b"*2\r\n$4\r\nPING\r\n$3\r\nmsg\r\n*1\r\n$4\r\nPING\r\n",
+            &mut executor,
+        )
+        .await;
         assert_eq!(response, "$3\r\nmsg\r\n+PONG\r\n");
     }
 
@@ -219,6 +223,28 @@ mod test {
 
         let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
         assert_eq!(response, "$4\r\nMoez\r\n");
+    }
+
+    #[tokio::test]
+    async fn should_honor_set_nx() {
+        let mut executor = Executor {
+            store: HashMapStore::default(),
+            clock: SystemClock {},
+        };
+
+        let response = send_and_get(
+            b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n$2\r\nNX\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
+
+        let response = send_and_get(
+            b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n$2\r\nNX\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "$-1\r\n");
     }
 
     #[tokio::test]

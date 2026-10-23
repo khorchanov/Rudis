@@ -7,9 +7,28 @@ use crate::protocol::{self, Literal};
 pub enum Command {
     Ping(Option<String>),
     Echo(String),
-    Set(String, String),
+    Set(String, String, Vec<SetArgument>),
     Get(String),
     Del(String), //TODO: can have many arguments
+}
+
+#[derive(Debug, PartialEq)]
+pub enum SetArgument {
+    NX,
+}
+
+impl TryFrom<Literal> for SetArgument {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Literal) -> Result<Self, Self::Error> {
+        match value {
+            Literal::String(key) | Literal::BulkString(key) if key == "NX" => Ok(SetArgument::NX),
+            Literal::String(key) | Literal::BulkString(key) => {
+                bail!("{key} is not a valid argumeent for SET command")
+            }
+            _ => bail!("Wrong ARGUMENT format For SET command"),
+        }
+    }
 }
 
 impl Command {
@@ -55,7 +74,11 @@ impl Command {
                             .next()
                             .ok_or_else(|| anyhow!("Protocol Error"))?
                             .into_string()?;
-                        Command::Set(key, value) //TODO: support putting an integer
+                        let args: Vec<SetArgument> = iterator
+                            .map(SetArgument::try_from)
+                            .collect::<anyhow::Result<Vec<SetArgument>>>(
+                        )?;
+                        Command::Set(key, value, args) //TODO: support putting an integer
                     }
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
@@ -98,6 +121,6 @@ mod test {
     fn resp_parse_put() {
         let input = b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$3\r\nbob\r\n";
         let result = dbg!(Command::try_parse_resp(input).unwrap());
-        assert_matches!(result, Some((Command::Set(key, value), bytes)) if key == "name" && value =="bob" && bytes == input.len());
+        assert_matches!(result, Some((Command::Set(key, value, _), bytes)) if key == "name" && value =="bob" && bytes == input.len());
     }
 }

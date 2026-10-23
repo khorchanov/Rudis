@@ -1,9 +1,9 @@
 use std::time::Instant;
 
-use anyhow::Ok;
+use anyhow::bail;
 
 use crate::{
-    command::Command,
+    command::{Command, SetArgument},
     protocol::Literal,
     store::{Entry, Store},
 };
@@ -30,7 +30,18 @@ impl<S: Store, C: Clock> Executor<S, C> {
         Ok(match command {
             Command::Ping(Some(message)) | Command::Echo(message) => Literal::BulkString(message),
             Command::Ping(None) => Literal::String("PONG".to_string()),
-            Command::Set(key, value) => {
+            Command::Set(key, value, args) => {
+                let nx = args.contains(&SetArgument::NX);
+                if nx {
+                    match self.store.get(&key).await {
+                        Ok(Some(entry)) if self.clock.now() < entry.expires_at => {
+                            //TODO: make expiration inside handled by the store
+                            return Ok(Literal::NullBulkString);
+                        }
+                        Err(_) => bail!("Cannot get an entry to check if it exists"),
+                        _ => {}
+                    }
+                }
                 self.store
                     .put(key.clone(), Entry::expiring(value.clone()))
                     .await?;
