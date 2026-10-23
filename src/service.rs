@@ -33,18 +33,15 @@ impl<S: Store, C: Clock> Executor<S, C> {
             Command::Set(key, value, args) => {
                 let nx = args.contains(&SetArgument::NX);
                 let xx = args.contains(&SetArgument::XX); //TODO: XX & NX are exclusives
-                if nx {
+                let get = args.contains(&SetArgument::GET);
+                let mut old_entry: Option<Entry> = None;
+                if nx || xx || get {
                     match self.store.get(&key).await {
-                        Ok(Some(_)) => {
+                        Ok(Some(_)) if nx => {
                             return Ok(Literal::NullBulkString);
                         }
-                        Err(_) => bail!("Cannot get an entry to check if it exists"),
-                        _ => {}
-                    }
-                }
-                if xx {
-                    match self.store.get(&key).await {
-                        Ok(None) => return Ok(Literal::NullBulkString),
+                        Ok(None) if xx => return Ok(Literal::NullBulkString),
+                        Ok(Some(entry)) if get => old_entry = Some(entry),
                         Err(_) => bail!("Cannot get an entry to check if it exists"),
                         _ => {}
                     }
@@ -52,6 +49,15 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 self.store
                     .put(key.clone(), Entry::expiring(value.clone()))
                     .await?;
+                if get {
+                    return Ok(match old_entry {
+                        Some(Entry {
+                            value,
+                            expires_at: _,
+                        }) => Literal::BulkString(value),
+                        None => Literal::NullBulkString,
+                    });
+                }
                 Literal::String("OK".to_string())
             }
             Command::Get(key) => {

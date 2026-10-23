@@ -2,6 +2,21 @@ use anyhow::{Ok, anyhow, bail};
 
 use crate::protocol::{self, Literal};
 
+macro_rules! parse_argument {
+    ($value:expr, [$($enum:ident :: $variant:ident),+ $(,)?]) => {
+        match $value {
+            $(
+                Literal::String(key) | Literal::BulkString(key)
+                    if key == stringify!($variant) => Ok($enum::$variant),
+            )+
+            Literal::String(key) | Literal::BulkString(key) => {
+                bail!("{key} is not a valid argument for SET command")
+            }
+            _ => bail!("Wrong ARGUMENT format For SET command"),
+        }
+    };
+}
+
 #[derive(Debug)]
 //TODO: add missing commands
 pub enum Command {
@@ -16,20 +31,14 @@ pub enum Command {
 pub enum SetArgument {
     NX,
     XX,
+    GET,
 }
 
 impl TryFrom<Literal> for SetArgument {
     type Error = anyhow::Error;
 
     fn try_from(value: Literal) -> Result<Self, Self::Error> {
-        match value {
-            Literal::String(key) | Literal::BulkString(key) if key == "NX" => Ok(SetArgument::NX),
-            Literal::String(key) | Literal::BulkString(key) if key == "XX" => Ok(SetArgument::XX),
-            Literal::String(key) | Literal::BulkString(key) => {
-                bail!("{key} is not a valid argumeent for SET command")
-            }
-            _ => bail!("Wrong ARGUMENT format For SET command"),
-        }
+        parse_argument!(value, [SetArgument::NX, SetArgument::XX, SetArgument::GET])
     }
 }
 

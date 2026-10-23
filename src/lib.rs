@@ -173,6 +173,28 @@ mod test {
     }
 
     #[tokio::test]
+    async fn should_store_with_get() {
+        let mut executor = Executor {
+            store: HashMapStore::default(),
+            clock: SystemClock {},
+        };
+
+        let response = send_and_get(
+            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
+
+        let response = send_and_get(
+            b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nKHnv\r\n$3\r\nGET\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "$4\r\nMoez\r\n");
+    }
+
+    #[tokio::test]
     async fn should_honor_set_nx() {
         let mut executor = Executor {
             store: HashMapStore::default(),
