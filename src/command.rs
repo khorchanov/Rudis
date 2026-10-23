@@ -15,6 +15,7 @@ pub enum Command {
 #[derive(Debug, PartialEq)]
 pub enum SetArgument {
     NX,
+    XX,
 }
 
 impl TryFrom<Literal> for SetArgument {
@@ -23,6 +24,7 @@ impl TryFrom<Literal> for SetArgument {
     fn try_from(value: Literal) -> Result<Self, Self::Error> {
         match value {
             Literal::String(key) | Literal::BulkString(key) if key == "NX" => Ok(SetArgument::NX),
+            Literal::String(key) | Literal::BulkString(key) if key == "XX" => Ok(SetArgument::XX),
             Literal::String(key) | Literal::BulkString(key) => {
                 bail!("{key} is not a valid argumeent for SET command")
             }

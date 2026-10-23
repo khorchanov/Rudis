@@ -248,6 +248,35 @@ mod test {
     }
 
     #[tokio::test]
+    async fn should_honor_set_xx() {
+        let mut executor = Executor {
+            store: HashMapStore::default(),
+            clock: SystemClock {},
+        };
+
+        let response = send_and_get(
+            b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n$2\r\nXX\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "$-1\r\n");
+
+        let response = send_and_get(
+            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
+
+        let response = send_and_get(
+            b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n$2\r\nXX\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
+    }
+
+    #[tokio::test]
     async fn should_store_and_delete() {
         let mut executor = Executor {
             store: HashMapStore::default(),

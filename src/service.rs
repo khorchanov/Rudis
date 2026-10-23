@@ -32,12 +32,23 @@ impl<S: Store, C: Clock> Executor<S, C> {
             Command::Ping(None) => Literal::String("PONG".to_string()),
             Command::Set(key, value, args) => {
                 let nx = args.contains(&SetArgument::NX);
+                let xx = args.contains(&SetArgument::XX); //TODO: XX & NX are exclusives
                 if nx {
                     match self.store.get(&key).await {
                         Ok(Some(entry)) if self.clock.now() < entry.expires_at => {
                             //TODO: make expiration inside handled by the store
                             return Ok(Literal::NullBulkString);
                         }
+                        Err(_) => bail!("Cannot get an entry to check if it exists"),
+                        _ => {}
+                    }
+                }
+                if xx {
+                    match self.store.get(&key).await {
+                        Ok(Some(entry)) if self.clock.now() > entry.expires_at => {
+                            return Ok(Literal::NullBulkString);
+                        }
+                        Ok(None) => return Ok(Literal::NullBulkString),
                         Err(_) => bail!("Cannot get an entry to check if it exists"),
                         _ => {}
                     }
