@@ -35,8 +35,7 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 let xx = args.contains(&SetArgument::XX); //TODO: XX & NX are exclusives
                 if nx {
                     match self.store.get(&key).await {
-                        Ok(Some(entry)) if self.clock.now() < entry.expires_at => {
-                            //TODO: make expiration inside handled by the store
+                        Ok(Some(_)) => {
                             return Ok(Literal::NullBulkString);
                         }
                         Err(_) => bail!("Cannot get an entry to check if it exists"),
@@ -45,9 +44,6 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 }
                 if xx {
                     match self.store.get(&key).await {
-                        Ok(Some(entry)) if self.clock.now() > entry.expires_at => {
-                            return Ok(Literal::NullBulkString);
-                        }
                         Ok(None) => return Ok(Literal::NullBulkString),
                         Err(_) => bail!("Cannot get an entry to check if it exists"),
                         _ => {}
@@ -58,14 +54,17 @@ impl<S: Store, C: Clock> Executor<S, C> {
                     .await?;
                 Literal::String("OK".to_string())
             }
-            Command::Get(key) => match self.store.get(key.as_str()).await? {
-                Some(entry) if self.clock.now() > entry.expires_at => {
-                    let _ = self.store.delete(&key).await;
+            Command::Get(key) => {
+                if let Some(Entry {
+                    value,
+                    expires_at: _,
+                }) = self.store.get(key.as_str()).await?
+                {
+                    Literal::BulkString(value)
+                } else {
                     Literal::NullBulkString
                 }
-                Some(entry) => Literal::BulkString(entry.value),
-                None => Literal::NullBulkString,
-            },
+            }
             Command::Del(key) => self
                 .store
                 .delete(&key)

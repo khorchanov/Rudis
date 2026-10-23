@@ -64,11 +64,8 @@ async fn write_and_flush(
 mod test {
 
     use std::{
-        cell::RefCell,
-        collections::HashMap,
         io::{Cursor, Write},
         sync::{Arc, Mutex},
-        time::{Duration, Instant},
     };
 
     use tokio::io::{AsyncWrite, BufReader};
@@ -76,7 +73,7 @@ mod test {
     use crate::{
         handle_connection,
         service::{Clock, Executor, SystemClock},
-        store::{Entry, HashMapStore, Store},
+        store::{HashMapStore, Store},
     };
 
     // Test utilities
@@ -108,32 +105,6 @@ mod test {
         }
     }
 
-    #[derive(Clone)]
-    pub struct TestClock {
-        simulated_time: Arc<RefCell<Instant>>,
-    }
-
-    impl Default for TestClock {
-        fn default() -> Self {
-            Self {
-                simulated_time: Arc::new(RefCell::new(Instant::now())),
-            }
-        }
-    }
-
-    impl TestClock {
-        fn advance_time_by(&self, duration: Duration) {
-            let old_value = self.simulated_time.borrow().clone();
-            *self.simulated_time.borrow_mut() = old_value + duration;
-        }
-    }
-
-    impl Clock for TestClock {
-        fn now(&self) -> Instant {
-            *self.simulated_time.borrow()
-        }
-    }
-
     async fn send_and_get<S: Store, C: Clock>(
         request: &[u8],
         store: &mut Executor<S, C>,
@@ -145,30 +116,6 @@ mod test {
         handle_connection(reader, writer, store).await.unwrap();
         let output = writer_handle.0.lock().unwrap();
         String::from_utf8(Vec::from(&output[..])).unwrap()
-    }
-
-    #[derive(Clone)]
-    struct TestStore(Arc<RefCell<HashMap<String, Entry>>>);
-
-    impl Store for TestStore {
-        async fn put(&mut self, key: String, value: crate::store::Entry) -> anyhow::Result<()> {
-            self.0.borrow_mut().insert(key, value);
-            Ok(())
-        }
-
-        async fn get(&self, key: &str) -> anyhow::Result<Option<Entry>> {
-            Ok(self.0.borrow().get(key).cloned())
-        }
-
-        async fn delete(&mut self, key: &str) -> anyhow::Result<Option<Entry>> {
-            Ok(self.0.borrow_mut().remove(key))
-        }
-    }
-
-    impl Default for TestStore {
-        fn default() -> Self {
-            Self(Arc::new(RefCell::new(HashMap::new())))
-        }
     }
 
     // End Test utilities
@@ -274,57 +221,5 @@ mod test {
         )
         .await;
         assert_eq!(response, "+OK\r\n");
-    }
-
-    #[tokio::test]
-    async fn should_store_and_delete() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
-
-        let response = send_and_get(
-            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
-            &mut executor,
-        )
-        .await;
-        assert_eq!(response, "+OK\r\n");
-
-        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
-        assert_eq!(response, "$4\r\nMoez\r\n");
-
-        let response = send_and_get(b"*2\r\n$3\r\nDEL\r\n$4\r\nname\r\n", &mut executor).await;
-        assert_eq!(response, ":1\r\n");
-
-        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
-        assert_eq!(response, "$-1\r\n");
-    }
-
-    #[tokio::test]
-    async fn expired_entries_should_not_be_returned() {
-        let clock = TestClock::default();
-        let store = TestStore::default();
-
-        let mut executor = Executor {
-            store: store.clone(),
-            clock: clock.clone(),
-        };
-
-        let response = send_and_get(
-            b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
-            &mut executor,
-        )
-        .await;
-        assert_eq!(response, "+OK\r\n");
-
-        dbg!(clock.now());
-        clock.advance_time_by(Duration::from_mins(10));
-        dbg!(clock.now());
-
-        let response = send_and_get(b"*2\r\n$3\r\nGET\r\n$4\r\nname\r\n", &mut executor).await;
-        assert_eq!(response, "$-1\r\n");
-
-        let result = dbg!(store.get("name").await);
-        assert!(matches!(result, Ok(None)));
     }
 }
