@@ -1,33 +1,46 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use anyhow::{Ok, anyhow, bail};
 
 use crate::protocol::{self, Literal};
-
-#[macro_use]
-mod utils;
 
 #[derive(Debug)]
 //TODO: add missing commands
 pub enum Command {
     Ping(Option<String>),
     Echo(String),
-    Set(String, String, Vec<SetArgument>),
+    Set(SetCommand),
     Get(String),
     Del(String), //TODO: can have many arguments
 }
 
-#[derive(Debug, PartialEq)]
-pub enum SetArgument {
-    NX,
-    XX,
-    GET,
+#[derive(Debug)]
+pub struct SetCommand {
+    pub key: String,
+    pub value: String,
+    pub return_old_value: bool,
+    pub set_rule: Option<SetArgumentRule>,
+    pub expiry_rule: Option<SetArgumentExpiryRule>,
 }
 
-impl TryFrom<Literal> for SetArgument {
-    type Error = anyhow::Error;
+#[derive(Debug, PartialEq)]
+pub enum SetArgumentRule {
+    NX,
+    XX,
+}
 
-    fn try_from(value: Literal) -> Result<Self, Self::Error> {
-        parse_argument!(value, [SetArgument::NX, SetArgument::XX, SetArgument::GET])
-    }
+#[derive(Debug, PartialEq)]
+pub enum SetArgumentExpiryRule {
+    ExpiresAfterMs(u64),
+    ExpiresAtMs(u64),
+    KeepTtl,
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }
 
 impl Command {
@@ -73,11 +86,53 @@ impl Command {
                             .next()
                             .ok_or_else(|| anyhow!("Protocol Error"))?
                             .into_string()?;
-                        let args: Vec<SetArgument> = iterator
-                            .map(SetArgument::try_from)
-                            .collect::<anyhow::Result<Vec<SetArgument>>>(
-                        )?;
-                        Command::Set(key, value, args) //TODO: support putting an integer
+                        let mut set_rule = None;
+                        let mut expiry_rule = None;
+                        let mut return_old_value = false;
+                        while let Some(Literal::BulkString(next)) = iterator.next() {
+                            //TODO: beware of hidden errors
+                            match next.as_str() {
+                                "NX" => set_rule = Some(SetArgumentRule::NX),
+                                "XX" => set_rule = Some(SetArgumentRule::XX),
+                                "KEEPTTL" => expiry_rule = Some(SetArgumentExpiryRule::KeepTtl),
+                                "GET" => return_old_value = true,
+                                arg @ ("EX" | "PX") => {
+                                    let duration = iterator
+                                        .next()
+                                        .ok_or_else(|| anyhow!("Protocol Error"))?
+                                        .into_u64()?;
+                                    let expires_after = if arg == "EX" {
+                                        now_ms() + duration * 1000
+                                    } else {
+                                        now_ms() + duration
+                                    };
+                                    expiry_rule =
+                                        Some(SetArgumentExpiryRule::ExpiresAfterMs(expires_after))
+                                }
+                                arg @ ("EXAT" | "PXAT") => {
+                                    let timestamp = iterator
+                                        .next()
+                                        .ok_or_else(|| anyhow!("Protocol Error"))?
+                                        .into_u64()?;
+                                    let expires_after = if arg == "EX" {
+                                        timestamp * 1000
+                                    } else {
+                                        timestamp
+                                    };
+                                    expiry_rule =
+                                        Some(SetArgumentExpiryRule::ExpiresAfterMs(expires_after))
+                                }
+                                _ => {}
+                            }
+                        }
+                        let command = SetCommand {
+                            key,
+                            value,
+                            return_old_value,
+                            set_rule,
+                            expiry_rule,
+                        };
+                        Command::Set(command) //TODO: support putting an integer
                     }
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
@@ -94,6 +149,7 @@ mod test {
     use std::assert_matches;
 
     use super::Command;
+    use super::SetCommand;
 
     #[test]
     fn resp_parse_ping() {
@@ -119,7 +175,7 @@ mod test {
     #[test]
     fn resp_parse_put() {
         let input = b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$3\r\nbob\r\n";
-        let result = dbg!(Command::try_parse_resp(input).unwrap());
-        assert_matches!(result, Some((Command::Set(key, value, _), bytes)) if key == "name" && value =="bob" && bytes == input.len());
+        let result: Option<(Command, usize)> = dbg!(Command::try_parse_resp(input).unwrap());
+        assert_matches!(result, Some((Command::Set(SetCommand{key,value, return_old_value:_, set_rule:_, expiry_rule:_ }), bytes)) if key == "name" && value =="bob" && bytes == input.len());
     }
 }

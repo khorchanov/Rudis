@@ -1,14 +1,14 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::Result;
 
 use crate::{SystemClock, service::Clock};
 
-const EXPIRATION_DEPLAY: Duration = Duration::from_mins(5);
+const EXPIRATION_DEPLAY_MS: u64 = 5 * 60 * 1000;
 
 pub trait Store {
     fn put(
@@ -23,14 +23,28 @@ pub trait Store {
 #[derive(Clone, Debug)]
 pub struct Entry {
     pub value: String,
-    pub expires_at: Instant,
+    pub expires_at_ms: u64,
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }
 
 impl Entry {
-    pub fn expiring(value: String) -> Self {
+    pub fn expiring_default(value: String) -> Self {
         Entry {
             value,
-            expires_at: Instant::now() + EXPIRATION_DEPLAY,
+            expires_at_ms: now_ms() + EXPIRATION_DEPLAY_MS,
+        }
+    }
+
+    pub fn expiring_at_millis(value: String, timestamp: u64) -> Self {
+        Entry {
+            value,
+            expires_at_ms: now_ms() + timestamp,
         }
     }
 }
@@ -58,7 +72,7 @@ impl<C: Clock> Store for HashMapStore<C> {
     async fn get(&self, key: &str) -> Result<Option<Entry>> {
         let mut guard = self.broker.lock().expect("Store mutex poisoned");
         Ok(match guard.get(key) {
-            Some(entry) if self.clock.now() > entry.expires_at => {
+            Some(entry) if self.clock.now_ms() > entry.expires_at_ms => {
                 guard.remove(key);
                 None
             }
@@ -79,7 +93,7 @@ mod test {
         assert_matches,
         cell::RefCell,
         sync::Arc,
-        time::{Duration, Instant},
+        time::{SystemTime, UNIX_EPOCH},
     };
 
     use crate::{
@@ -90,26 +104,33 @@ mod test {
 
     #[derive(Clone)]
     pub struct TestClock {
-        simulated_time: Arc<RefCell<Instant>>,
+        simulated_time: Arc<RefCell<u64>>,
+    }
+
+    fn now_ms() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
     }
 
     impl Default for TestClock {
         fn default() -> Self {
             Self {
-                simulated_time: Arc::new(RefCell::new(Instant::now())),
+                simulated_time: Arc::new(RefCell::new(now_ms())),
             }
         }
     }
 
     impl TestClock {
-        fn advance_time_by(&self, duration: Duration) {
+        fn advance_time_by(&self, duration: u64) {
             let old_value = self.simulated_time.borrow().clone();
             *self.simulated_time.borrow_mut() = old_value + duration;
         }
     }
 
     impl Clock for TestClock {
-        fn now(&self) -> Instant {
+        fn now_ms(&self) -> u64 {
             *self.simulated_time.borrow()
         }
     }
@@ -120,12 +141,15 @@ mod test {
             clock: TestClock::default(),
             broker: Default::default(),
         };
-        let (key, entry) = ("key".to_string(), Entry::expiring("value".to_string()));
+        let (key, entry) = (
+            "key".to_string(),
+            Entry::expiring_default("value".to_string()),
+        );
         let _ = store.put(key.clone(), entry.clone()).await;
         let found = store.get(&key).await.unwrap().unwrap().value;
         assert_eq!(found, entry.value.clone());
 
-        store.clock.advance_time_by(Duration::from_hours(1));
+        store.clock.advance_time_by(now_ms() + 30 * 60 * 1000);
 
         let found = store.get(&key).await.unwrap();
         assert_matches!(found, None);

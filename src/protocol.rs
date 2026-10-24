@@ -23,6 +23,12 @@ impl Literal {
             _ => bail!("Literal Not a String"),
         }
     }
+    pub fn into_u64(self) -> anyhow::Result<u64> {
+        match self {
+            Literal::String(content) | Literal::BulkString(content) => Ok(content.parse()?),
+            _ => bail!("Literal Not a String"),
+        }
+    }
 }
 
 #[cfg(test)]
