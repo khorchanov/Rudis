@@ -34,19 +34,18 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 let nx = args.contains(&SetArgument::NX);
                 let xx = args.contains(&SetArgument::XX); //TODO: XX & NX are exclusives
                 let get = args.contains(&SetArgument::GET);
-                let mut old_entry: Option<Entry> = None;
-                if nx || xx || get {
+                if nx || xx {
                     match self.store.get(&key).await {
                         Ok(Some(_)) if nx => {
                             return Ok(Literal::NullBulkString);
                         }
                         Ok(None) if xx => return Ok(Literal::NullBulkString),
-                        Ok(Some(entry)) if get => old_entry = Some(entry),
                         Err(_) => bail!("Cannot get an entry to check if it exists"),
                         _ => {}
                     }
                 }
-                self.store
+                let old_entry = self
+                    .store
                     .put(key.clone(), Entry::expiring(value.clone()))
                     .await?;
                 if get {

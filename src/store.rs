@@ -11,7 +11,11 @@ use crate::{SystemClock, service::Clock};
 const EXPIRATION_DEPLAY: Duration = Duration::from_mins(5);
 
 pub trait Store {
-    fn put(&mut self, key: String, value: Entry) -> impl std::future::Future<Output = Result<()>>;
+    fn put(
+        &mut self,
+        key: String,
+        value: Entry,
+    ) -> impl std::future::Future<Output = Result<Option<Entry>>>;
     fn get(&self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
     fn delete(&mut self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
 }
@@ -46,10 +50,9 @@ impl Default for HashMapStore<SystemClock> {
 }
 
 impl<C: Clock> Store for HashMapStore<C> {
-    async fn put(&mut self, key: String, value: Entry) -> Result<()> {
+    async fn put(&mut self, key: String, value: Entry) -> Result<Option<Entry>> {
         let mut guard = self.broker.lock().expect("Store mutex poisoned");
-        guard.insert(key, value);
-        Ok(())
+        Ok(guard.insert(key, value))
     }
 
     async fn get(&self, key: &str) -> Result<Option<Entry>> {
