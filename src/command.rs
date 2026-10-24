@@ -1,7 +1,9 @@
-
 use anyhow::{Ok, anyhow, bail};
 
-use crate::{protocol::{self, Literal}, utils::now_ms};
+use crate::{
+    protocol::{self, Literal},
+    utils::now_ms,
+};
 
 #[derive(Debug)]
 //TODO: add missing commands
@@ -34,7 +36,6 @@ pub enum SetArgumentExpiryRule {
     ExpiresAtMs(u64),
     KeepTtl,
 }
-
 
 impl Command {
     pub fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<Option<(Self, usize)>> {
@@ -113,7 +114,7 @@ impl Command {
                                         timestamp
                                     };
                                     expiry_rule =
-                                        Some(SetArgumentExpiryRule::ExpiresAfterMs(expires_after))
+                                        Some(SetArgumentExpiryRule::ExpiresAtMs(expires_after))
                                 }
                                 _ => {}
                             }

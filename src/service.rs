@@ -1,8 +1,10 @@
-
 use anyhow::bail;
 
 use crate::{
-    command::{Command, SetArgumentRule, SetCommand}, protocol::Literal, store::{Entry, Store}, utils::now_ms,
+    command::{Command, SetArgumentExpiryRule, SetArgumentRule, SetCommand},
+    protocol::Literal,
+    store::{Entry, Store},
+    utils::now_ms,
 };
 
 pub trait Clock {
@@ -32,7 +34,7 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 value,
                 return_old_value,
                 set_rule,
-                expiry_rule: _,
+                expiry_rule,
             }) => {
                 if let Some(rule) = set_rule {
                     match (rule, self.store.get(&key).await) {
@@ -46,10 +48,17 @@ impl<S: Store, C: Clock> Executor<S, C> {
                         _ => {}
                     }
                 }
-                let old_entry = self
-                    .store
-                    .put(key.clone(), Entry::expiring_default(value.clone()))
-                    .await?;
+                let entry = match expiry_rule {
+                    Some(SetArgumentExpiryRule::ExpiresAtMs(at)) => {
+                        Entry::expiring_at_millis(value, at)
+                    }
+                    Some(SetArgumentExpiryRule::ExpiresAfterMs(after)) => {
+                        Entry::expiring_at_millis(value, now_ms() + after)
+                    }
+                    Some(SetArgumentExpiryRule::KeepTtl) => Entry::expiring_default(value), //TODO: handle keepttl
+                    None => Entry::expiring_default(value),
+                };
+                let old_entry = self.store.put(key.clone(), entry).await?;
                 if return_old_value {
                     return Ok(match old_entry {
                         Some(Entry {

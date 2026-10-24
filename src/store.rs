@@ -81,14 +81,13 @@ impl<C: Clock> Store for HashMapStore<C> {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        assert_matches,
-        cell::RefCell,
-        sync::Arc,
-    };
+    use std::{assert_matches, cell::RefCell, sync::Arc};
 
     use crate::{
-        HashMapStore, service::Clock, store::{Entry, Store}, utils::now_ms,
+        HashMapStore,
+        service::Clock,
+        store::{Entry, Store},
+        utils::now_ms,
     };
 
     #[derive(Clone)]
