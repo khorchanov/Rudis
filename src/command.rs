@@ -1,8 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Ok, anyhow, bail};
 
-use crate::protocol::{self, Literal};
+use crate::{protocol::{self, Literal}, utils::now_ms};
 
 #[derive(Debug)]
 //TODO: add missing commands
@@ -36,12 +35,6 @@ pub enum SetArgumentExpiryRule {
     KeepTtl,
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
-}
 
 impl Command {
     pub fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<Option<(Self, usize)>> {

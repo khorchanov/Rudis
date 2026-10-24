@@ -1,12 +1,11 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::Result;
 
-use crate::{SystemClock, service::Clock};
+use crate::{SystemClock, service::Clock, utils::now_ms};
 
 const EXPIRATION_DEPLAY_MS: u64 = 5 * 60 * 1000;
 
@@ -24,13 +23,6 @@ pub trait Store {
 pub struct Entry {
     pub value: String,
     pub expires_at_ms: u64,
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
 }
 
 impl Entry {
@@ -93,25 +85,15 @@ mod test {
         assert_matches,
         cell::RefCell,
         sync::Arc,
-        time::{SystemTime, UNIX_EPOCH},
     };
 
     use crate::{
-        HashMapStore,
-        service::Clock,
-        store::{Entry, Store},
+        HashMapStore, service::Clock, store::{Entry, Store}, utils::now_ms,
     };
 
     #[derive(Clone)]
     pub struct TestClock {
         simulated_time: Arc<RefCell<u64>>,
-    }
-
-    fn now_ms() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
     }
 
     impl Default for TestClock {

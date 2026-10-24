@@ -1,11 +1,8 @@
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::bail;
 
 use crate::{
-    command::{Command, SetArgumentRule, SetCommand},
-    protocol::Literal,
-    store::{Entry, Store},
+    command::{Command, SetArgumentRule, SetCommand}, protocol::Literal, store::{Entry, Store}, utils::now_ms,
 };
 
 pub trait Clock {
@@ -20,12 +17,6 @@ impl Clock for SystemClock {
     }
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
-}
 pub struct Executor<S: Store, C: Clock> {
     pub store: S,
     pub clock: C,

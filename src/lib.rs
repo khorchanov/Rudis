@@ -7,6 +7,7 @@ mod command;
 mod protocol;
 mod service;
 mod store;
+mod utils;
 
 pub use service::{Executor, SystemClock};
 pub use store::HashMapStore;
