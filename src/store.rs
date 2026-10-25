@@ -138,7 +138,7 @@ mod test {
         };
         let (key, entry) = (
             "key".to_string(),
-            Entry::expiring_at_millis("value".to_string(), 10 * 60 * 1000),
+            Entry::expiring_at_millis("value".to_string(), now_ms() + 10 * 60 * 1000),
         );
         let _ = store.put(key.clone(), entry.clone()).await;
         let found = store.get(&key).await.unwrap().unwrap().value;
