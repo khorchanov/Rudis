@@ -46,7 +46,7 @@ impl Entry {
     pub fn expiring_at_millis(value: String, timestamp: u64) -> Self {
         Entry {
             value,
-            expires_at_ms: Some(now_ms() + timestamp),
+            expires_at_ms: Some(timestamp),
         }
     }
 }
