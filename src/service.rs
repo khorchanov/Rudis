@@ -87,16 +87,10 @@ impl<S: Store> Executor<S> {
                     Literal::NullBulkString
                 }
             }
-            Command::Del(key) => self
-                .store
-                .delete(&key)
-                .await?
-                .map(|_| Literal::Integer(1))
-                .unwrap_or_else(|| Literal::Integer(0)), //TODO: return number of elements removed
+            Command::Del(keys) => Literal::Integer(self.store.delete_many(keys).await? as i64),
         })
     }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -138,8 +132,14 @@ mod test {
     #[tokio::test]
     async fn plain_set_overwrites_and_replies_ok() {
         let mut executor = Executor::default();
-        executor.process_command_resp(set("k", "v1", None, None, false)).await.unwrap();
-        let reply = executor.process_command_resp(set("k", "v2", None, None, false)).await.unwrap();
+        executor
+            .process_command_resp(set("k", "v1", None, None, false))
+            .await
+            .unwrap();
+        let reply = executor
+            .process_command_resp(set("k", "v2", None, None, false))
+            .await
+            .unwrap();
 
         assert_matches!(reply, Literal::String(s) if s == "OK");
         assert_eq!(stored(&executor, "k").await, Some(("v2".to_string(), None)));
@@ -160,14 +160,20 @@ mod test {
     #[tokio::test]
     async fn nx_does_not_overwrite_existing_key() {
         let mut executor = Executor::default();
-        executor.process_command_resp(set("k", "old", None, None, false)).await.unwrap();
+        executor
+            .process_command_resp(set("k", "old", None, None, false))
+            .await
+            .unwrap();
         let reply = executor
             .process_command_resp(set("k", "new", Some(SetArgumentRule::NX), None, false))
             .await
             .unwrap();
 
         assert_matches!(reply, Literal::NullBulkString);
-        assert_eq!(stored(&executor, "k").await, Some(("old".to_string(), None)));
+        assert_eq!(
+            stored(&executor, "k").await,
+            Some(("old".to_string(), None))
+        );
     }
 
     #[tokio::test]
@@ -185,33 +191,54 @@ mod test {
     #[tokio::test]
     async fn xx_overwrites_existing_key() {
         let mut executor = Executor::default();
-        executor.process_command_resp(set("k", "old", None, None, false)).await.unwrap();
+        executor
+            .process_command_resp(set("k", "old", None, None, false))
+            .await
+            .unwrap();
         let reply = executor
             .process_command_resp(set("k", "new", Some(SetArgumentRule::XX), None, false))
             .await
             .unwrap();
 
         assert_matches!(reply, Literal::String(s) if s == "OK");
-        assert_eq!(stored(&executor, "k").await, Some(("new".to_string(), None)));
+        assert_eq!(
+            stored(&executor, "k").await,
+            Some(("new".to_string(), None))
+        );
     }
 
     #[tokio::test]
     async fn get_returns_old_value() {
         let mut executor = Executor::default();
-        executor.process_command_resp(set("k", "old", None, None, false)).await.unwrap();
-        let reply = executor.process_command_resp(set("k", "new", None, None, true)).await.unwrap();
+        executor
+            .process_command_resp(set("k", "old", None, None, false))
+            .await
+            .unwrap();
+        let reply = executor
+            .process_command_resp(set("k", "new", None, None, true))
+            .await
+            .unwrap();
 
         assert_matches!(reply, Literal::BulkString(s) if s == "old");
-        assert_eq!(stored(&executor, "k").await, Some(("new".to_string(), None)));
+        assert_eq!(
+            stored(&executor, "k").await,
+            Some(("new".to_string(), None))
+        );
     }
 
     #[tokio::test]
     async fn get_returns_nil_when_key_was_missing() {
         let mut executor = Executor::default();
-        let reply = executor.process_command_resp(set("k", "new", None, None, true)).await.unwrap();
+        let reply = executor
+            .process_command_resp(set("k", "new", None, None, true))
+            .await
+            .unwrap();
 
         assert_matches!(reply, Literal::NullBulkString);
-        assert_eq!(stored(&executor, "k").await, Some(("new".to_string(), None)));
+        assert_eq!(
+            stored(&executor, "k").await,
+            Some(("new".to_string(), None))
+        );
     }
 
     #[tokio::test]
@@ -219,14 +246,23 @@ mod test {
         let mut executor = Executor::default();
         let before = now_ms();
         executor
-            .process_command_resp(set("k", "v", None, Some(SetArgumentExpiryRule::ExpiresAfterMs(10_000)), false))
+            .process_command_resp(set(
+                "k",
+                "v",
+                None,
+                Some(SetArgumentExpiryRule::ExpiresAfterMs(10_000)),
+                false,
+            ))
             .await
             .unwrap();
         let after = now_ms();
 
         let (_, expires_at) = stored(&executor, "k").await.unwrap();
         let expires_at = expires_at.expect("entry should expire");
-        assert!((before + 10_000..=after + 10_000).contains(&expires_at), "expires_at = {expires_at}");
+        assert!(
+            (before + 10_000..=after + 10_000).contains(&expires_at),
+            "expires_at = {expires_at}"
+        );
     }
 
     #[tokio::test]
@@ -234,21 +270,39 @@ mod test {
         let mut executor = Executor::default();
         let at = now_ms() + 60_000;
         executor
-            .process_command_resp(set("k", "v", None, Some(SetArgumentExpiryRule::ExpiresAtMs(at)), false))
+            .process_command_resp(set(
+                "k",
+                "v",
+                None,
+                Some(SetArgumentExpiryRule::ExpiresAtMs(at)),
+                false,
+            ))
             .await
             .unwrap();
 
-        assert_eq!(stored(&executor, "k").await, Some(("v".to_string(), Some(at))));
+        assert_eq!(
+            stored(&executor, "k").await,
+            Some(("v".to_string(), Some(at)))
+        );
     }
 
     #[tokio::test]
     async fn plain_set_clears_existing_ttl() {
         let mut executor = Executor::default();
         executor
-            .process_command_resp(set("k", "v1", None, Some(SetArgumentExpiryRule::ExpiresAfterMs(10_000)), false))
+            .process_command_resp(set(
+                "k",
+                "v1",
+                None,
+                Some(SetArgumentExpiryRule::ExpiresAfterMs(10_000)),
+                false,
+            ))
             .await
             .unwrap();
-        executor.process_command_resp(set("k", "v2", None, None, false)).await.unwrap();
+        executor
+            .process_command_resp(set("k", "v2", None, None, false))
+            .await
+            .unwrap();
 
         assert_eq!(stored(&executor, "k").await, Some(("v2".to_string(), None)));
     }
@@ -258,23 +312,47 @@ mod test {
         let mut executor = Executor::default();
         let at = now_ms() + 60_000;
         executor
-            .process_command_resp(set("k", "v1", None, Some(SetArgumentExpiryRule::ExpiresAtMs(at)), false))
+            .process_command_resp(set(
+                "k",
+                "v1",
+                None,
+                Some(SetArgumentExpiryRule::ExpiresAtMs(at)),
+                false,
+            ))
             .await
             .unwrap();
         executor
-            .process_command_resp(set("k", "v2", None, Some(SetArgumentExpiryRule::KeepTtl), false))
+            .process_command_resp(set(
+                "k",
+                "v2",
+                None,
+                Some(SetArgumentExpiryRule::KeepTtl),
+                false,
+            ))
             .await
             .unwrap();
 
-        assert_eq!(stored(&executor, "k").await, Some(("v2".to_string(), Some(at))));
+        assert_eq!(
+            stored(&executor, "k").await,
+            Some(("v2".to_string(), Some(at)))
+        );
     }
 
     #[tokio::test]
     async fn keep_ttl_on_key_without_ttl_never_expires() {
         let mut executor = Executor::default();
-        executor.process_command_resp(set("k", "v1", None, None, false)).await.unwrap();
         executor
-            .process_command_resp(set("k", "v2", None, Some(SetArgumentExpiryRule::KeepTtl), false))
+            .process_command_resp(set("k", "v1", None, None, false))
+            .await
+            .unwrap();
+        executor
+            .process_command_resp(set(
+                "k",
+                "v2",
+                None,
+                Some(SetArgumentExpiryRule::KeepTtl),
+                false,
+            ))
             .await
             .unwrap();
 
@@ -284,9 +362,18 @@ mod test {
     #[tokio::test]
     async fn xx_with_expiry_and_get() {
         let mut executor = Executor::default();
-        executor.process_command_resp(set("k", "old", None, None, false)).await.unwrap();
+        executor
+            .process_command_resp(set("k", "old", None, None, false))
+            .await
+            .unwrap();
         let reply = executor
-            .process_command_resp(set("k", "new", Some(SetArgumentRule::XX), Some(SetArgumentExpiryRule::ExpiresAfterMs(10_000)), true))
+            .process_command_resp(set(
+                "k",
+                "new",
+                Some(SetArgumentRule::XX),
+                Some(SetArgumentExpiryRule::ExpiresAfterMs(10_000)),
+                true,
+            ))
             .await
             .unwrap();
 
@@ -294,5 +381,48 @@ mod test {
         let (value, expires_at) = stored(&executor, "k").await.unwrap();
         assert_eq!(value, "new");
         assert!(expires_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn del_many_returns_number_of_deleted_keys() {
+        let mut executor = Executor::default();
+        for key in ["a", "b", "c"] {
+            executor
+                .process_command_resp(set(key, "v", None, None, false))
+                .await
+                .unwrap();
+        }
+
+        let keys = ["a", "b", "missing", "c"].map(String::from).to_vec();
+        let reply = executor
+            .process_command_resp(Command::Del(keys))
+            .await
+            .unwrap();
+
+        assert_matches!(reply, Literal::Integer(3));
+        for key in ["a", "b", "c"] {
+            assert_eq!(stored(&executor, key).await, None);
+        }
+    }
+
+    #[tokio::test]
+    async fn del_many_returns_zero_when_no_key_exists() {
+        let mut executor = Executor::default();
+        executor
+            .process_command_resp(set("untouched", "v", None, None, false))
+            .await
+            .unwrap();
+
+        let keys = ["x", "y", "z"].map(String::from).to_vec();
+        let reply = executor
+            .process_command_resp(Command::Del(keys))
+            .await
+            .unwrap();
+
+        assert_matches!(reply, Literal::Integer(0));
+        assert_eq!(
+            stored(&executor, "untouched").await,
+            Some(("v".to_string(), None))
+        );
     }
 }

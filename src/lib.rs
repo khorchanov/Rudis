@@ -20,10 +20,8 @@ pub async fn handle_connection<S: Store>(
     println!("New Client Connected");
     let mut reader = BufReader::new(stream_reader);
     let mut writer = BufWriter::new(stream_writer);
-    let mut line = String::new();
     let mut buf: Vec<u8> = Vec::with_capacity(4096);
     loop {
-        line.clear();
         match reader.read_buf(&mut buf).await {
             Ok(0) => {
                 println!("Client closed the connection");

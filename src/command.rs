@@ -12,7 +12,7 @@ pub enum Command {
     Echo(String),
     Set(SetCommand),
     Get(String),
-    Del(String), //TODO: can have many arguments
+    Del(Vec<String>), //TODO: can have many arguments
 }
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Command {
             let result = match iterator.next() {
                 Some(Literal::BulkString(command)) => match command.as_str() {
                     "PING" => {
-                        let args = iterator.next().map(|lit| lit.into_string()).transpose()?;
+                        let args = iterator.next().map(Literal::into_string).transpose()?;
                         Command::Ping(args)
                     }
                     "ECHO" => {
@@ -65,11 +65,10 @@ impl Command {
                         Command::Get(key)
                     }
                     "DEL" => {
-                        let key = iterator
-                            .next()
-                            .ok_or_else(|| anyhow!("Protocol Error"))?
-                            .into_string()?;
-                        Command::Del(key)
+                        let keys = iterator
+                            .map(Literal::into_string)
+                            .collect::<anyhow::Result<Vec<String>>>()?;
+                        Command::Del(keys)
                     }
                     "SET" => {
                         let key = iterator
