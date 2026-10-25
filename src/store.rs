@@ -5,7 +5,19 @@ use std::{
 
 use anyhow::Result;
 
-use crate::{SystemClock, service::Clock, utils::now_ms};
+use crate::utils::now_ms;
+
+pub trait Clock {
+    fn now_ms(&self) -> u64;
+}
+
+pub struct SystemClock {}
+
+impl Clock for SystemClock {
+    fn now_ms(&self) -> u64 {
+        now_ms()
+    }
+}
 
 pub trait Store {
     fn put(
@@ -88,8 +100,7 @@ mod test {
 
     use crate::{
         HashMapStore,
-        service::Clock,
-        store::{Entry, Store},
+        store::{Clock, Entry, Store},
         utils::now_ms,
     };
 

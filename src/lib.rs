@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
 
-use crate::{command::Command, protocol::serialize, service::Clock, store::Store};
+use crate::{command::Command, protocol::serialize, store::Store};
 
 mod command;
 mod protocol;
@@ -9,13 +9,13 @@ mod service;
 mod store;
 mod utils;
 
-pub use service::{Executor, SystemClock};
+pub use service::Executor;
 pub use store::HashMapStore;
 
-pub async fn handle_connection<S: Store, C: Clock>(
+pub async fn handle_connection<S: Store>(
     stream_reader: impl AsyncRead + Unpin,
     stream_writer: impl AsyncWrite + Unpin,
-    service: &mut Executor<S, C>,
+    service: &mut Executor<S>,
 ) -> Result<()> {
     println!("New Client Connected");
     let mut reader = BufReader::new(stream_reader);
@@ -71,11 +71,7 @@ mod test {
 
     use tokio::io::{AsyncWrite, BufReader};
 
-    use crate::{
-        handle_connection,
-        service::{Clock, Executor, SystemClock},
-        store::{HashMapStore, Store},
-    };
+    use crate::{Executor, handle_connection, store::Store};
 
     // Test utilities
     #[derive(Clone, Default)]
@@ -106,10 +102,7 @@ mod test {
         }
     }
 
-    async fn send_and_get<S: Store, C: Clock>(
-        request: &[u8],
-        store: &mut Executor<S, C>,
-    ) -> String {
+    async fn send_and_get<S: Store>(request: &[u8], store: &mut Executor<S>) -> String {
         let input = Cursor::new(request);
         let reader = BufReader::new(input);
         let writer: TestBuffer = TestBuffer::default();
@@ -123,20 +116,14 @@ mod test {
 
     #[tokio::test]
     async fn test_ping() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
         let response = send_and_get(b"*1\r\n$4\r\nPING\r\n", &mut executor).await;
         assert_eq!(response, "+PONG\r\n");
     }
 
     #[tokio::test]
     async fn test_multiple_ping() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
         let response = send_and_get(
             b"*2\r\n$4\r\nPING\r\n$3\r\nmsg\r\n*1\r\n$4\r\nPING\r\n",
             &mut executor,
@@ -147,21 +134,14 @@ mod test {
 
     #[tokio::test]
     async fn test_echo() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
         let response = send_and_get(b"*2\r\n$4\r\nECHO\r\n$3\r\nmsg\r\n", &mut executor).await;
         assert_eq!(response, "$3\r\nmsg\r\n");
     }
 
     #[tokio::test]
     async fn should_store_and_read() {
-        let mut executor = Executor {
-            //TODO: just default executor
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
 
         let response = send_and_get(
             b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
@@ -176,10 +156,7 @@ mod test {
 
     #[tokio::test]
     async fn should_store_with_get() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
 
         let response = send_and_get(
             b"*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n",
@@ -198,10 +175,7 @@ mod test {
 
     #[tokio::test]
     async fn should_honor_set_nx() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
 
         let response = send_and_get(
             b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n$2\r\nNX\r\n",
@@ -220,10 +194,7 @@ mod test {
 
     #[tokio::test]
     async fn should_honor_set_xx() {
-        let mut executor = Executor {
-            store: HashMapStore::default(),
-            clock: SystemClock {},
-        };
+        let mut executor = Default::default();
 
         let response = send_and_get(
             b"*4\r\n$3\r\nSET\r\n$4\r\nname\r\n$4\r\nMoez\r\n$2\r\nXX\r\n",

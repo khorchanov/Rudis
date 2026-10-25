@@ -1,30 +1,26 @@
 use anyhow::bail;
 
 use crate::{
+    HashMapStore,
     command::{Command, SetArgumentExpiryRule, SetArgumentRule, SetCommand},
     protocol::Literal,
-    store::{Entry, Store},
+    store::{Entry, Store, SystemClock},
     utils::now_ms,
 };
 
-pub trait Clock {
-    fn now_ms(&self) -> u64;
+pub struct Executor<S: Store> {
+    pub store: S,
 }
 
-pub struct SystemClock {}
-
-impl Clock for SystemClock {
-    fn now_ms(&self) -> u64 {
-        now_ms()
+impl Default for Executor<HashMapStore<SystemClock>> {
+    fn default() -> Self {
+        Self {
+            store: Default::default(),
+        }
     }
 }
 
-pub struct Executor<S: Store, C: Clock> {
-    pub store: S,
-    pub clock: C,
-}
-
-impl<S: Store, C: Clock> Executor<S, C> {
+impl<S: Store> Executor<S> {
     pub async fn process_command_resp(&mut self, command: Command) -> anyhow::Result<Literal> {
         Ok(match command {
             Command::Ping(Some(message)) | Command::Echo(message) => Literal::BulkString(message),

@@ -1,15 +1,12 @@
 use tokio::net::TcpListener;
 
 use anyhow::Result;
-use rudis::{Executor, HashMapStore, SystemClock, handle_connection};
+use rudis::handle_connection;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let listener = TcpListener::bind("0.0.0.0:8080").await?;
-    let mut executor = Executor {
-        store: HashMapStore::default(),
-        clock: SystemClock {},
-    };
+    let mut executor = Default::default();
 
     println!("Server listening on port 8080");
 
