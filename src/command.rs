@@ -12,7 +12,8 @@ pub enum Command {
     Echo(String),
     Set(SetCommand),
     Get(String),
-    Del(Vec<String>), //TODO: can have many arguments
+    Del(Vec<String>),
+    Exists(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -69,6 +70,12 @@ impl Command {
                             .map(Literal::into_string)
                             .collect::<anyhow::Result<Vec<String>>>()?;
                         Command::Del(keys)
+                    }
+                    "EXISTS" => {
+                        let keys = iterator
+                            .map(Literal::into_string)
+                            .collect::<anyhow::Result<Vec<String>>>()?;
+                        Command::Exists(keys)
                     }
                     "SET" => {
                         let key = iterator

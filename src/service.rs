@@ -88,6 +88,15 @@ impl<S: Store> Executor<S> {
                 }
             }
             Command::Del(keys) => Literal::Integer(self.store.delete_many(keys).await? as i64),
+            Command::Exists(keys) => {
+                let mut count = 0;
+                for key in keys {
+                    if self.store.exists(&key).await? == true {
+                        count += 1;
+                    }
+                }
+                Literal::Integer(count)
+            }
         })
     }
 }
