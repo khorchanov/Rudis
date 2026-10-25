@@ -17,6 +17,7 @@ pub enum Literal {
 }
 
 impl Literal {
+    //TODO: review theses parsing fns
     pub fn into_string(self) -> anyhow::Result<String> {
         match self {
             Literal::String(content) | Literal::BulkString(content) => Ok(content),
@@ -25,7 +26,13 @@ impl Literal {
     }
     pub fn into_u64(self) -> anyhow::Result<u64> {
         match self {
-            Literal::Integer(content) => Ok(content as u64), //
+            Literal::Integer(content) => Ok(content as u64),
+            _ => bail!("Literal Not a String"),
+        }
+    }
+    pub fn into_i64(self) -> anyhow::Result<i64> {
+        match self {
+            Literal::String(content) => Ok(content.parse()?),
             _ => bail!("Literal Not a String"),
         }
     }

@@ -34,7 +34,7 @@ pub trait Store {
 #[derive(Clone, Debug)]
 pub struct Entry {
     pub value: String,
-    pub expires_at_ms: Option<u64>,
+    pub expires_at_ms: Option<u64>, //TODO: make this invisible outside of this module
 }
 
 impl Entry {
@@ -49,6 +49,14 @@ impl Entry {
         Entry {
             value,
             expires_at_ms: Some(timestamp),
+        }
+    }
+
+    pub fn may_expires_in_millis(value: String, timestamp: Option<u64>) -> Self {
+        if let Some(ts) = timestamp {
+            Self::expiring_at_millis(value, ts)
+        } else {
+            Self::never_expires(value)
         }
     }
 

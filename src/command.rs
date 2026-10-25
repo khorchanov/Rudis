@@ -6,6 +6,8 @@ mod del;
 mod echo;
 mod exists;
 mod get;
+mod incr;
+mod incr_by;
 mod ping;
 mod set;
 
@@ -20,6 +22,8 @@ pub enum Command {
     Get(String),
     Del(Vec<String>),
     Exists(Vec<String>),
+    Incr(String),
+    IncrBy(String, i64),
 }
 
 impl Command {
@@ -37,6 +41,8 @@ impl Command {
                     "DEL" => del::parse(iterator)?,
                     "EXISTS" => exists::parse(iterator)?,
                     "SET" => set::parse(iterator)?,
+                    "INCR" => incr::parse(iterator)?,
+                    "INCRBY" => incr_by::parse(iterator)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),

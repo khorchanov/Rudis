@@ -9,6 +9,8 @@ mod del;
 mod echo;
 mod exists;
 mod get;
+mod incr;
+mod incr_by;
 mod ping;
 mod set;
 
@@ -33,6 +35,8 @@ impl<S: Store> Executor<S> {
             Command::Get(key) => get::execute(&self.store, &key).await,
             Command::Del(keys) => del::execute(&mut self.store, keys).await,
             Command::Exists(keys) => exists::execute(&self.store, keys).await,
+            Command::Incr(key) => incr::execute(&mut self.store, &key).await,
+            Command::IncrBy(key, by) => incr_by::execute(&mut self.store, &key, by).await,
         }
     }
 }
