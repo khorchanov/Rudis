@@ -36,7 +36,7 @@ impl<S: Store, C: Clock> Executor<S, C> {
                 set_rule,
                 expiry_rule,
             }) => {
-                if let Some(rule) = set_rule {
+                if let Some(rule) = dbg!(set_rule) {
                     match (rule, self.store.get(&key).await) {
                         (SetArgumentRule::NX, Ok(Some(_))) => {
                             return Ok(Literal::NullBulkString);
@@ -48,17 +48,27 @@ impl<S: Store, C: Clock> Executor<S, C> {
                         _ => {}
                     }
                 }
-                let entry = match expiry_rule {
+                let entry = match dbg!(expiry_rule) {
                     Some(SetArgumentExpiryRule::ExpiresAtMs(at)) => {
                         Entry::expiring_at_millis(value, at)
                     }
                     Some(SetArgumentExpiryRule::ExpiresAfterMs(after)) => {
                         Entry::expiring_at_millis(value, now_ms() + after)
                     }
-                    Some(SetArgumentExpiryRule::KeepTtl) => Entry::expiring_default(value), //TODO: handle keepttl
-                    None => Entry::expiring_default(value),
+                    Some(SetArgumentExpiryRule::KeepTtl) => {
+                        if let Ok(Some(Entry {
+                            value: _,
+                            expires_at_ms: Some(expires_at_ms),
+                        })) = self.store.get(&key).await
+                        {
+                            Entry::expiring_at_millis(value, expires_at_ms)
+                        } else {
+                            Entry::never_expires(value)
+                        }
+                    }
+                    None => Entry::never_expires(value),
                 };
-                let old_entry = self.store.put(key.clone(), entry).await?;
+                let old_entry = self.store.put(key.clone(), dbg!(entry)).await?;
                 if return_old_value {
                     return Ok(match old_entry {
                         Some(Entry {

@@ -7,8 +7,6 @@ use anyhow::Result;
 
 use crate::{SystemClock, service::Clock, utils::now_ms};
 
-const EXPIRATION_DEPLAY_MS: u64 = 5 * 60 * 1000;
-
 pub trait Store {
     fn put(
         &mut self,
@@ -22,21 +20,21 @@ pub trait Store {
 #[derive(Clone, Debug)]
 pub struct Entry {
     pub value: String,
-    pub expires_at_ms: u64,
+    pub expires_at_ms: Option<u64>,
 }
 
 impl Entry {
-    pub fn expiring_default(value: String) -> Self {
+    pub fn never_expires(value: String) -> Self {
         Entry {
             value,
-            expires_at_ms: now_ms() + EXPIRATION_DEPLAY_MS,
+            expires_at_ms: None,
         }
     }
 
     pub fn expiring_at_millis(value: String, timestamp: u64) -> Self {
         Entry {
             value,
-            expires_at_ms: now_ms() + timestamp,
+            expires_at_ms: Some(now_ms() + timestamp),
         }
     }
 }
@@ -64,7 +62,12 @@ impl<C: Clock> Store for HashMapStore<C> {
     async fn get(&self, key: &str) -> Result<Option<Entry>> {
         let mut guard = self.broker.lock().expect("Store mutex poisoned");
         Ok(match guard.get(key) {
-            Some(entry) if self.clock.now_ms() > entry.expires_at_ms => {
+            Some(entry)
+                if entry
+                    .expires_at_ms
+                    .map(|expires_at_ms| self.clock.now_ms() > expires_at_ms)
+                    .unwrap_or_default() =>
+            {
                 guard.remove(key);
                 None
             }
@@ -124,7 +127,7 @@ mod test {
         };
         let (key, entry) = (
             "key".to_string(),
-            Entry::expiring_default("value".to_string()),
+            Entry::expiring_at_millis("value".to_string(), 10 * 60 * 1000),
         );
         let _ = store.put(key.clone(), entry.clone()).await;
         let found = store.get(&key).await.unwrap().unwrap().value;
