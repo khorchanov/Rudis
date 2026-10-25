@@ -51,6 +51,12 @@ impl Entry {
             expires_at_ms: Some(timestamp),
         }
     }
+
+    pub fn expired(&self, clock: &impl Clock) -> bool {
+        self.expires_at_ms
+            .map(|expires_at_ms| clock.now_ms() > expires_at_ms)
+            .unwrap_or_default()
+    }
 }
 
 pub struct HashMapStore<C: Clock> {
@@ -76,12 +82,7 @@ impl<C: Clock> Store for HashMapStore<C> {
     async fn get(&self, key: &str) -> Result<Option<Entry>> {
         let mut guard = self.broker.lock().expect("Store mutex poisoned");
         Ok(match guard.get(key) {
-            Some(entry)
-                if entry
-                    .expires_at_ms
-                    .map(|expires_at_ms| self.clock.now_ms() > expires_at_ms)
-                    .unwrap_or_default() =>
-            {
+            Some(entry) if entry.expired(&self.clock) => {
                 guard.remove(key);
                 None
             }
@@ -107,7 +108,10 @@ impl<C: Clock> Store for HashMapStore<C> {
 
     async fn exists(&self, key: &str) -> Result<bool> {
         let guard = self.broker.lock().expect("Store mutex poisoned");
-        Ok(guard.contains_key(key))
+        Ok(guard
+            .get(key)
+            .map(|e| !e.expired(&self.clock))
+            .unwrap_or_default())
     }
 }
 
