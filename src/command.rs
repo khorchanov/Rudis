@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::bail;
 
 use crate::protocol::{self, Literal};
@@ -5,6 +7,7 @@ use crate::protocol::{self, Literal};
 mod del;
 mod echo;
 mod exists;
+mod expire;
 mod get;
 mod incr;
 mod incr_by;
@@ -24,6 +27,7 @@ pub enum Command {
     Exists(Vec<String>),
     Incr(String),
     IncrBy(String, i64),
+    Expire(String, Option<Duration>),
 }
 
 impl Command {
@@ -43,6 +47,8 @@ impl Command {
                     "SET" => set::parse(iterator)?,
                     "INCR" => incr::parse(iterator)?,
                     "INCRBY" => incr_by::parse(iterator)?,
+                    "EXPIRE" => expire::parse(iterator, Duration::from_secs)?,
+                    "PEXPIRE" => expire::parse(iterator, Duration::from_millis)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),

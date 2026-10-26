@@ -8,6 +8,7 @@ use crate::{
 mod del;
 mod echo;
 mod exists;
+mod expire;
 mod get;
 mod incr;
 mod incr_by;
@@ -37,11 +38,13 @@ impl<S: Store> Executor<S> {
             Command::Exists(keys) => exists::execute(&self.store, keys).await,
             Command::Incr(key) => incr::execute(&mut self.store, &key).await,
             Command::IncrBy(key, by) => incr_by::execute(&mut self.store, &key, by).await,
+            Command::Expire(key, duration) => {
+                expire::execute(&mut self.store, &key, duration).await
+            }
         }
     }
 }
 
-/// Helpers shared by the command submodules' tests
 #[cfg(test)]
 mod test_utils {
     use crate::{
