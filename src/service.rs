@@ -14,6 +14,7 @@ mod incr;
 mod incr_by;
 mod ping;
 mod set;
+mod ttl;
 
 pub struct Executor<S: Store> {
     pub store: S,
@@ -41,6 +42,7 @@ impl<S: Store> Executor<S> {
             Command::Expire(key, duration) => {
                 expire::execute(&mut self.store, &key, duration).await
             }
+            Command::Ttl(key, unit) => ttl::execute(&mut self.store, &key, unit).await,
         }
     }
 }

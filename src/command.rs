@@ -13,7 +13,9 @@ mod incr;
 mod incr_by;
 mod ping;
 mod set;
+mod ttl;
 
+pub use crate::command::ttl::TtlReturnUnit;
 pub use set::{SetArgumentExpiryRule, SetArgumentRule, SetCommand};
 
 #[derive(Debug)]
@@ -28,6 +30,7 @@ pub enum Command {
     Incr(String),
     IncrBy(String, i64),
     Expire(String, Option<Duration>),
+    Ttl(String, TtlReturnUnit),
 }
 
 impl Command {
@@ -49,6 +52,8 @@ impl Command {
                     "INCRBY" => incr_by::parse(iterator)?,
                     "EXPIRE" => expire::parse(iterator, Duration::from_secs)?,
                     "PEXPIRE" => expire::parse(iterator, Duration::from_millis)?,
+                    "TTL" => ttl::parse(iterator, ttl::TtlReturnUnit::Seconds)?,
+                    "PTTL" => ttl::parse(iterator, ttl::TtlReturnUnit::Millis)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),
