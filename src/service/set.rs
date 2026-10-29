@@ -30,9 +30,9 @@ pub(super) async fn execute(
         }
     }
     let entry = match dbg!(expiry_rule) {
-        Some(SetArgumentExpiryRule::ExpiresAtMs(at)) => Entry::expiring_at_millis(value, at),
+        Some(SetArgumentExpiryRule::ExpiresAtMs(at)) => Entry::expires_at_millis(value, at),
         Some(SetArgumentExpiryRule::ExpiresAfterMs(after)) => {
-            Entry::expiring_at_millis(value, now_ms() + after)
+            Entry::expires_at_millis(value, now_ms() + after)
         }
         Some(SetArgumentExpiryRule::KeepTtl) => {
             if let Ok(Some(Entry {
@@ -40,7 +40,7 @@ pub(super) async fn execute(
                 expires_at_ms: Some(expires_at_ms),
             })) = store.get(&key).await
             {
-                Entry::expiring_at_millis(value, expires_at_ms)
+                Entry::expires_at_millis(value, expires_at_ms)
             } else {
                 Entry::never_expires(value)
             }

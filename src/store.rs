@@ -45,18 +45,17 @@ impl Entry {
         }
     }
 
-    pub fn expiring_at_millis(value: String, timestamp: u64) -> Self {
+    pub fn expires_at_millis(value: String, timestamp: u64) -> Self {
         Entry {
             value,
             expires_at_ms: Some(timestamp),
         }
     }
 
-    pub fn may_expires_in_millis(value: String, timestamp: Option<u64>) -> Self {
-        if let Some(ts) = timestamp {
-            Self::expiring_at_millis(value, ts)
-        } else {
-            Self::never_expires(value)
+    pub fn may_expires_in_millis(value: String, expires_at_ms: Option<u64>) -> Self {
+        Entry {
+            value,
+            expires_at_ms,
         }
     }
 
@@ -167,7 +166,7 @@ mod test {
         };
         let (key, entry) = (
             "key".to_string(),
-            Entry::expiring_at_millis("value".to_string(), now_ms() + 10 * 60 * 1000),
+            Entry::expires_at_millis("value".to_string(), now_ms() + 10 * 60 * 1000),
         );
         let _ = store.put(key.clone(), entry.clone()).await;
         let found = store.get(&key).await.unwrap().unwrap().value;

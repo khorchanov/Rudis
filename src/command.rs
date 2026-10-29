@@ -11,6 +11,7 @@ mod expire;
 mod get;
 mod incr;
 mod incr_by;
+mod persist;
 mod ping;
 mod set;
 mod ttl;
@@ -31,6 +32,7 @@ pub enum Command {
     IncrBy(String, i64),
     Expire(String, Option<Duration>),
     Ttl(String, TtlReturnUnit),
+    Persist(String),
 }
 
 impl Command {
@@ -54,6 +56,7 @@ impl Command {
                     "PEXPIRE" => expire::parse(iterator, Duration::from_millis)?,
                     "TTL" => ttl::parse(iterator, ttl::TtlReturnUnit::Seconds)?,
                     "PTTL" => ttl::parse(iterator, ttl::TtlReturnUnit::Millis)?,
+                    "PERSIST" => persist::parse(iterator)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),
