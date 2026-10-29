@@ -5,6 +5,7 @@ use crate::{
     store::{Store, SystemClock},
 };
 
+mod append;
 mod del;
 mod echo;
 mod exists;
@@ -45,6 +46,7 @@ impl<S: Store> Executor<S> {
             }
             Command::Ttl(key, unit) => ttl::execute(&mut self.store, &key, unit).await,
             Command::Persist(key) => persist::execute(&mut self.store, &key).await,
+            Command::Append(key, value) => append::execute(&mut self.store, key, value).await,
         }
     }
 }

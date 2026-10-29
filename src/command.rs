@@ -23,6 +23,7 @@ pub enum Command {
     Expire(String, Option<Duration>),
     Ttl(String, TtlReturnUnit),
     Persist(String),
+    Append(String, String),
 }
 
 #[derive(Debug)]
@@ -56,6 +57,10 @@ impl Command {
                     "PEXPIRE" => Command::Expire(
                         parser::parse(&mut iterator)?,
                         parser::parse_opt(&mut iterator)?.map(Duration::from_millis),
+                    ),
+                    "APPEND" => Command::Append(
+                        parser::parse(&mut iterator)?,
+                        parser::parse(&mut iterator)?,
                     ),
                     "TTL" => Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Seconds),
                     "PTTL" => Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Millis),
