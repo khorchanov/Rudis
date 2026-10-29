@@ -29,11 +29,11 @@ pub(super) fn parse(mut iterator: impl Iterator<Item = Literal>) -> anyhow::Resu
     let key = iterator
         .next()
         .ok_or_else(|| anyhow!("Protocol Error"))?
-        .into_string()?;
+        .into_anything()?;
     let value = iterator
         .next()
         .ok_or_else(|| anyhow!("Protocol Error"))?
-        .into_string()?;
+        .into_anything()?;
     let mut set_rule = None;
     let mut expiry_rule = None;
     let mut return_old_value = false;
@@ -45,10 +45,10 @@ pub(super) fn parse(mut iterator: impl Iterator<Item = Literal>) -> anyhow::Resu
             "KEEPTTL" => expiry_rule = Some(SetArgumentExpiryRule::KeepTtl),
             "GET" => return_old_value = true,
             arg @ ("EX" | "PX") => {
-                let duration = iterator
+                let duration: u64 = iterator
                     .next()
                     .ok_or_else(|| anyhow!("Protocol Error"))?
-                    .into_u64()?;
+                    .into_anything()?;
                 let expires_after = if arg == "EX" {
                     now_ms() + duration * 1000
                 } else {
@@ -60,7 +60,7 @@ pub(super) fn parse(mut iterator: impl Iterator<Item = Literal>) -> anyhow::Resu
                 let timestamp = iterator
                     .next()
                     .ok_or_else(|| anyhow!("Protocol Error"))?
-                    .into_u64()?;
+                    .into_anything()?;
                 let expires_after = if arg == "EX" {
                     timestamp * 1000
                 } else {

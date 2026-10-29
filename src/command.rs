@@ -4,19 +4,9 @@ use anyhow::bail;
 
 use crate::protocol::{self, Literal};
 
-mod del;
-mod echo;
-mod exists;
-mod expire;
-mod get;
-mod incr;
-mod incr_by;
-mod persist;
-mod ping;
+mod parser;
 mod set;
-mod ttl;
 
-pub use crate::command::ttl::TtlReturnUnit;
 pub use set::{SetArgumentExpiryRule, SetArgumentRule, SetCommand};
 
 #[derive(Debug)]
@@ -35,6 +25,12 @@ pub enum Command {
     Persist(String),
 }
 
+#[derive(Debug)]
+pub enum TtlReturnUnit {
+    Seconds,
+    Millis,
+}
+
 impl Command {
     pub fn try_parse_resp(buffer: &[u8]) -> anyhow::Result<Option<(Self, usize)>> {
         let Some((literal, bytes_processed)) = protocol::try_parse_resp(buffer)? else {
@@ -44,19 +40,32 @@ impl Command {
             let mut iterator = elements.into_iter();
             let result = match iterator.next() {
                 Some(Literal::BulkString(command)) => match command.as_str() {
-                    "PING" => ping::parse(iterator)?,
-                    "ECHO" => echo::parse(iterator)?,
-                    "GET" => get::parse(iterator)?,
-                    "DEL" => del::parse(iterator)?,
-                    "EXISTS" => exists::parse(iterator)?,
+                    "PING" => Command::Ping(parser::parse_opt(&mut iterator)?),
+                    "ECHO" => Command::Echo(parser::parse(&mut iterator)?),
+                    "GET" => Command::Get(parser::parse(&mut iterator)?),
+                    "PERSIST" => Command::Persist(parser::parse(&mut iterator)?),
+                    "INCR" => Command::Incr(parser::parse(&mut iterator)?),
+                    "INCRBY" => Command::IncrBy(
+                        parser::parse(&mut iterator)?,
+                        parser::parse(&mut iterator)?,
+                    ),
+                    "EXPIRE" => Command::Expire(
+                        parser::parse(&mut iterator)?,
+                        parser::parse_opt(&mut iterator)?.map(Duration::from_secs),
+                    ),
+                    "PEXPIRE" => Command::Expire(
+                        parser::parse(&mut iterator)?,
+                        parser::parse_opt(&mut iterator)?.map(Duration::from_millis),
+                    ),
+                    "TTL" => {
+                        Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Seconds)
+                    }
+                    "PTTL" => {
+                        Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Millis)
+                    }
+                    "DEL" => Command::Del(parser::parse_vec(&mut iterator)?),
+                    "EXISTS" => Command::Exists(parser::parse_vec(&mut iterator)?),
                     "SET" => set::parse(iterator)?,
-                    "INCR" => incr::parse(iterator)?,
-                    "INCRBY" => incr_by::parse(iterator)?,
-                    "EXPIRE" => expire::parse(iterator, Duration::from_secs)?,
-                    "PEXPIRE" => expire::parse(iterator, Duration::from_millis)?,
-                    "TTL" => ttl::parse(iterator, ttl::TtlReturnUnit::Seconds)?,
-                    "PTTL" => ttl::parse(iterator, ttl::TtlReturnUnit::Millis)?,
-                    "PERSIST" => persist::parse(iterator)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),
