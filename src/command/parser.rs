@@ -10,7 +10,7 @@ where
     let message = iterator
         .next()
         .ok_or_else(|| anyhow::anyhow!("Protocol Error"))?
-        .into_anything()?;
+        .parse()?;
     Ok(message)
 }
 
@@ -21,7 +21,7 @@ where
     T: FromStr,
     T::Err: std::error::Error + Send + Sync + 'static,
 {
-    iterator.next().map(Literal::into_anything).transpose()
+    iterator.next().map(Literal::parse).transpose()
 }
 
 pub(super) fn parse_vec<T>(iterator: &mut impl Iterator<Item = Literal>) -> anyhow::Result<Vec<T>>
@@ -30,7 +30,7 @@ where
     T::Err: std::error::Error + Send + Sync + 'static,
 {
     let results = iterator
-        .map(Literal::into_anything)
+        .map(Literal::parse)
         .collect::<anyhow::Result<Vec<T>>>()?;
     Ok(results)
 }

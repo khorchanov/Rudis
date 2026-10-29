@@ -57,12 +57,8 @@ impl Command {
                         parser::parse(&mut iterator)?,
                         parser::parse_opt(&mut iterator)?.map(Duration::from_millis),
                     ),
-                    "TTL" => {
-                        Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Seconds)
-                    }
-                    "PTTL" => {
-                        Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Millis)
-                    }
+                    "TTL" => Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Seconds),
+                    "PTTL" => Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Millis),
                     "DEL" => Command::Del(parser::parse_vec(&mut iterator)?),
                     "EXISTS" => Command::Exists(parser::parse_vec(&mut iterator)?),
                     "SET" => set::parse(iterator)?,

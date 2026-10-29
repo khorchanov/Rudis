@@ -21,7 +21,7 @@ pub enum Literal {
 impl Literal {
     //TODO: review theses parsing fns
 
-    pub fn into_anything<T>(self) -> anyhow::Result<T>
+    pub fn parse<T>(self) -> anyhow::Result<T>
     where
         T: FromStr,
         T::Err: std::error::Error + Send + Sync + 'static,
