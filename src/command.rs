@@ -24,6 +24,7 @@ pub enum Command {
     Ttl(String, TtlReturnUnit),
     Persist(String),
     Append(String, String),
+    Mset(Vec<String>)
 }
 
 #[derive(Debug)]
@@ -42,30 +43,31 @@ impl Command {
             let result = match iterator.next() {
                 Some(Literal::BulkString(command)) => match command.as_str() {
                     "PING" => Command::Ping(parser::parse_opt(&mut iterator)?),
-                    "ECHO" => Command::Echo(parser::parse(&mut iterator)?),
-                    "GET" => Command::Get(parser::parse(&mut iterator)?),
-                    "PERSIST" => Command::Persist(parser::parse(&mut iterator)?),
-                    "INCR" => Command::Incr(parser::parse(&mut iterator)?),
+                    "ECHO" => Command::Echo(parser::parse_one(&mut iterator)?),
+                    "GET" => Command::Get(parser::parse_one(&mut iterator)?),
+                    "PERSIST" => Command::Persist(parser::parse_one(&mut iterator)?),
+                    "INCR" => Command::Incr(parser::parse_one(&mut iterator)?),
                     "INCRBY" => Command::IncrBy(
-                        parser::parse(&mut iterator)?,
-                        parser::parse(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
                     ),
                     "EXPIRE" => Command::Expire(
-                        parser::parse(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
                         parser::parse_opt(&mut iterator)?.map(Duration::from_secs),
                     ),
                     "PEXPIRE" => Command::Expire(
-                        parser::parse(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
                         parser::parse_opt(&mut iterator)?.map(Duration::from_millis),
                     ),
                     "APPEND" => Command::Append(
-                        parser::parse(&mut iterator)?,
-                        parser::parse(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
                     ),
-                    "TTL" => Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Seconds),
-                    "PTTL" => Command::Ttl(parser::parse(&mut iterator)?, TtlReturnUnit::Millis),
+                    "TTL" => Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Seconds),
+                    "PTTL" => Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Millis),
                     "DEL" => Command::Del(parser::parse_vec(&mut iterator)?),
                     "EXISTS" => Command::Exists(parser::parse_vec(&mut iterator)?),
+                    "MSET" => Command::Mset(parser::parse_vec(&mut iterator)?),
                     "SET" => set::parse(iterator)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::protocol::Literal;
 
-pub(super) fn parse<T>(iterator: &mut impl Iterator<Item = Literal>) -> anyhow::Result<T>
+pub(super) fn parse_one<T>(iterator: &mut impl Iterator<Item = Literal>) -> anyhow::Result<T>
 where
     T: FromStr,
     T::Err: std::error::Error + Send + Sync + 'static,

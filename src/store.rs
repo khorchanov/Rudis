@@ -25,6 +25,10 @@ pub trait Store {
         key: String,
         value: Entry,
     ) -> impl std::future::Future<Output = Result<Option<Entry>>>;
+    fn put_many(
+        &mut self,
+        entries: Vec<(String, Entry)>,
+    ) -> impl std::future::Future<Output = Result<()>>;
     fn get(&self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
     fn exists(&self, key: &str) -> impl std::future::Future<Output = Result<bool>>;
     fn delete(&mut self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
@@ -84,6 +88,12 @@ impl<C: Clock> Store for HashMapStore<C> {
     async fn put(&mut self, key: String, value: Entry) -> Result<Option<Entry>> {
         let mut guard = self.broker.lock().expect("Store mutex poisoned");
         Ok(guard.insert(key, value))
+    }
+
+    async fn put_many(&mut self, entries: Vec<(String, Entry)>) -> Result<()> {
+        let mut guard = self.broker.lock().expect("Store mutex poisoned");
+        guard.extend(entries);
+        Ok(())
     }
 
     async fn get(&self, key: &str) -> Result<Option<Entry>> {
