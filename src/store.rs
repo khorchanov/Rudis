@@ -11,6 +11,7 @@ pub trait Clock {
     fn now_ms(&self) -> u64;
 }
 
+#[derive(Clone)]
 pub struct SystemClock {}
 
 impl Clock for SystemClock {
@@ -70,6 +71,7 @@ impl Entry {
     }
 }
 
+#[derive(Clone)]
 pub struct HashMapStore<C: Clock> {
     clock: C,
     broker: Arc<Mutex<HashMap<String, Entry>>>, //TODO: is it better to use a lock free actor pattern ?

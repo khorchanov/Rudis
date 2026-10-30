@@ -19,6 +19,7 @@ mod ping;
 mod set;
 mod ttl;
 
+#[derive(Clone)]
 pub struct Executor<S: Store> {
     pub store: S,
 }
