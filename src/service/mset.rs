@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub(super) async fn execute(store: &mut impl Store, items: Vec<String>) -> anyhow::Result<Literal> {
-    if items.is_empty() || items.len() % 2 != 0 {
+    if items.is_empty() || !items.len().is_multiple_of(2) {
         bail!("wrong number of arguments for 'mset' command");
     }
     let mut items = items.into_iter();
@@ -89,9 +89,7 @@ mod test {
     #[tokio::test]
     async fn odd_number_of_arguments_errors_and_sets_nothing() {
         let mut executor = Executor::default();
-        let result = executor
-            .process_command_resp(mset(&["a", "1", "b"]))
-            .await;
+        let result = executor.process_command_resp(mset(&["a", "1", "b"])).await;
 
         assert!(result.is_err());
         assert_eq!(stored(&executor, "a").await, None);

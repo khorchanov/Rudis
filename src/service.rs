@@ -13,6 +13,7 @@ mod expire;
 mod get;
 mod incr;
 mod incr_by;
+mod mget;
 mod mset;
 mod persist;
 mod ping;
@@ -50,6 +51,7 @@ impl<S: Store> Executor<S> {
             Command::Persist(key) => persist::execute(&mut self.store, &key).await,
             Command::Append(key, value) => append::execute(&mut self.store, key, value).await,
             Command::Mset(items) => mset::execute(&mut self.store, items).await,
+            Command::Mget(items) => mget::execute(&mut self.store, items).await,
         }
     }
 }

@@ -24,7 +24,8 @@ pub enum Command {
     Ttl(String, TtlReturnUnit),
     Persist(String),
     Append(String, String),
-    Mset(Vec<String>)
+    Mset(Vec<String>),
+    Mget(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -63,11 +64,16 @@ impl Command {
                         parser::parse_one(&mut iterator)?,
                         parser::parse_one(&mut iterator)?,
                     ),
-                    "TTL" => Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Seconds),
-                    "PTTL" => Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Millis),
+                    "TTL" => {
+                        Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Seconds)
+                    }
+                    "PTTL" => {
+                        Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Millis)
+                    }
                     "DEL" => Command::Del(parser::parse_vec(&mut iterator)?),
                     "EXISTS" => Command::Exists(parser::parse_vec(&mut iterator)?),
                     "MSET" => Command::Mset(parser::parse_vec(&mut iterator)?),
+                    "MGET" => Command::Mget(parser::parse_vec(&mut iterator)?),
                     "SET" => set::parse(iterator)?,
                     _ => bail!("Unknown command"), //TODO: error should be returned properly
                 },
