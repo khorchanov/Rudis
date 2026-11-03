@@ -82,6 +82,7 @@ impl Command {
                         Command::Ttl(parser::parse_one(&mut iterator)?, TtlReturnUnit::Millis)
                     }
                     "DEL" => Command::Del(parser::parse_vec(&mut iterator)?),
+                    "UNLINK" => Command::Del(parser::parse_vec(&mut iterator)?),
                     "EXISTS" => Command::Exists(parser::parse_vec(&mut iterator)?),
                     "MSET" => Command::Mset(parser::parse_vec(&mut iterator)?),
                     "MGET" => Command::Mget(parser::parse_vec(&mut iterator)?),
