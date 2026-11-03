@@ -11,7 +11,6 @@ mod echo;
 mod exists;
 mod expire;
 mod get;
-mod incr;
 mod incr_by;
 mod mget;
 mod mset;
@@ -42,7 +41,7 @@ impl<S: Store> Executor<S> {
             Command::Get(key) => get::execute(&self.store, &key).await,
             Command::Del(keys) => del::execute(&mut self.store, keys).await,
             Command::Exists(keys) => exists::execute(&self.store, keys).await,
-            Command::Incr(key) => incr::execute(&mut self.store, &key).await,
+            Command::Incr(key) => incr_by::execute(&mut self.store, &key, 1).await,
             Command::IncrBy(key, by) => incr_by::execute(&mut self.store, &key, by).await,
             Command::Expire(key, duration) => {
                 expire::execute(&mut self.store, &key, duration).await
@@ -52,6 +51,8 @@ impl<S: Store> Executor<S> {
             Command::Append(key, value) => append::execute(&mut self.store, key, value).await,
             Command::Mset(items) => mset::execute(&mut self.store, items).await,
             Command::Mget(items) => mget::execute(&mut self.store, items).await,
+            Command::Decr(key) => incr_by::execute(&mut self.store, &key, -1).await,
+            Command::DecrBy(key, by) => incr_by::execute(&mut self.store, &key, -by).await,
         }
     }
 }

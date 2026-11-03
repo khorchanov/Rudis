@@ -19,7 +19,9 @@ pub enum Command {
     Del(Vec<String>),
     Exists(Vec<String>),
     Incr(String),
+    Decr(String),
     IncrBy(String, i64),
+    DecrBy(String, i64),
     Expire(String, Option<Duration>),
     Ttl(String, TtlReturnUnit),
     Persist(String),
@@ -48,7 +50,12 @@ impl Command {
                     "GET" => Command::Get(parser::parse_one(&mut iterator)?),
                     "PERSIST" => Command::Persist(parser::parse_one(&mut iterator)?),
                     "INCR" => Command::Incr(parser::parse_one(&mut iterator)?),
+                    "DECR" => Command::Decr(parser::parse_one(&mut iterator)?),
                     "INCRBY" => Command::IncrBy(
+                        parser::parse_one(&mut iterator)?,
+                        parser::parse_one(&mut iterator)?,
+                    ),
+                    "DECRBY" => Command::DecrBy(
                         parser::parse_one(&mut iterator)?,
                         parser::parse_one(&mut iterator)?,
                     ),
