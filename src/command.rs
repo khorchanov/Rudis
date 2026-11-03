@@ -28,7 +28,8 @@ pub enum Command {
     Append(String, String),
     Mset(Vec<String>),
     Mget(Vec<String>),
-    GetDel(String)
+    GetDel(String),
+    StrLen(String),
 }
 
 #[derive(Debug)]
@@ -53,6 +54,7 @@ impl Command {
                     "INCR" => Command::Incr(parser::parse_one(&mut iterator)?),
                     "DECR" => Command::Decr(parser::parse_one(&mut iterator)?),
                     "GETDEL" => Command::GetDel(parser::parse_one(&mut iterator)?),
+                    "STRLEN" => Command::StrLen(parser::parse_one(&mut iterator)?),
                     "INCRBY" => Command::IncrBy(
                         parser::parse_one(&mut iterator)?,
                         parser::parse_one(&mut iterator)?,

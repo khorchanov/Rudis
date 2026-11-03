@@ -1,17 +1,11 @@
-use crate::{
-    protocol::Literal,
-    store::Store,
-};
+use crate::{protocol::Literal, store::Store};
 
 pub(super) async fn execute(store: &mut impl Store, key: &str) -> anyhow::Result<Literal> {
-    Ok(
-       if let Some(removed) = store.delete(&key).await? {
+    Ok(if let Some(removed) = store.delete(key).await? {
         Literal::BulkString(removed.value)
-       } else {
+    } else {
         Literal::NullBulkString
-       }
-
-    )
+    })
 }
 
 #[cfg(test)]

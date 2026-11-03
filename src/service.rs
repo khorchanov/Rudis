@@ -11,14 +11,15 @@ mod echo;
 mod exists;
 mod expire;
 mod get;
+mod get_del;
 mod incr_by;
 mod mget;
 mod mset;
 mod persist;
 mod ping;
 mod set;
+mod strlen;
 mod ttl;
-mod get_del;
 
 #[derive(Clone)]
 pub struct Executor<S: Store> {
@@ -55,6 +56,7 @@ impl<S: Store> Executor<S> {
             Command::Decr(key) => incr_by::execute(&mut self.store, &key, -1).await,
             Command::DecrBy(key, by) => incr_by::execute(&mut self.store, &key, -by).await,
             Command::GetDel(key) => get_del::execute(&mut self.store, &key).await,
+            Command::StrLen(key) => strlen::execute(&self.store, &key).await,
         }
     }
 }
