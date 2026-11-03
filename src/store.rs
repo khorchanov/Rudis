@@ -112,7 +112,7 @@ impl<C: Clock> Store for HashMapStore<C> {
 
     async fn delete(&mut self, key: &str) -> Result<Option<Entry>> {
         let mut guard = self.broker.lock().expect("Store mutex poisoned");
-        Ok(guard.remove(key))
+        Ok(guard.remove(key).filter(|entry| !entry.expired(&self.clock)))
     }
 
     async fn delete_many(&mut self, keys: Vec<String>) -> Result<u64> {

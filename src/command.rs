@@ -28,6 +28,7 @@ pub enum Command {
     Append(String, String),
     Mset(Vec<String>),
     Mget(Vec<String>),
+    GetDel(String)
 }
 
 #[derive(Debug)]
@@ -51,6 +52,7 @@ impl Command {
                     "PERSIST" => Command::Persist(parser::parse_one(&mut iterator)?),
                     "INCR" => Command::Incr(parser::parse_one(&mut iterator)?),
                     "DECR" => Command::Decr(parser::parse_one(&mut iterator)?),
+                    "GETDEL" => Command::GetDel(parser::parse_one(&mut iterator)?),
                     "INCRBY" => Command::IncrBy(
                         parser::parse_one(&mut iterator)?,
                         parser::parse_one(&mut iterator)?,

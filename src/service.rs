@@ -18,6 +18,7 @@ mod persist;
 mod ping;
 mod set;
 mod ttl;
+mod get_del;
 
 #[derive(Clone)]
 pub struct Executor<S: Store> {
@@ -53,6 +54,7 @@ impl<S: Store> Executor<S> {
             Command::Mget(items) => mget::execute(&mut self.store, items).await,
             Command::Decr(key) => incr_by::execute(&mut self.store, &key, -1).await,
             Command::DecrBy(key, by) => incr_by::execute(&mut self.store, &key, -by).await,
+            Command::GetDel(key) => get_del::execute(&mut self.store, &key).await,
         }
     }
 }
