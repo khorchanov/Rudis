@@ -7,6 +7,7 @@ use crate::protocol::{self, Literal};
 mod parser;
 mod set;
 
+pub use parser::keys_pattern::GlobElement;
 pub use set::{SetArgumentExpiryRule, SetArgumentRule, SetCommand};
 
 #[derive(Debug)]
@@ -30,6 +31,7 @@ pub enum Command {
     Mget(Vec<String>),
     GetDel(String),
     StrLen(String),
+    Keys(Vec<GlobElement>),
 }
 
 #[derive(Debug)]
@@ -55,6 +57,7 @@ impl Command {
                     "DECR" => Command::Decr(parser::parse_one(&mut iterator)?),
                     "GETDEL" => Command::GetDel(parser::parse_one(&mut iterator)?),
                     "STRLEN" => Command::StrLen(parser::parse_one(&mut iterator)?),
+                    "KEYS" => Command::Keys(parser::keys_pattern::parse(iterator)?),
                     "INCRBY" => Command::IncrBy(
                         parser::parse_one(&mut iterator)?,
                         parser::parse_one(&mut iterator)?,

@@ -13,6 +13,7 @@ mod expire;
 mod get;
 mod get_del;
 mod incr_by;
+mod keys;
 mod mget;
 mod mset;
 mod persist;
@@ -57,6 +58,7 @@ impl<S: Store> Executor<S> {
             Command::DecrBy(key, by) => incr_by::execute(&mut self.store, &key, -by).await,
             Command::GetDel(key) => get_del::execute(&mut self.store, &key).await,
             Command::StrLen(key) => strlen::execute(&self.store, &key).await,
+            Command::Keys(pattern) => keys::execute(&mut self.store, pattern).await,
         }
     }
 }

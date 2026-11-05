@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use crate::protocol::Literal;
+pub mod keys_pattern;
 
 pub(super) fn parse_one<T>(iterator: &mut impl Iterator<Item = Literal>) -> anyhow::Result<T>
 where

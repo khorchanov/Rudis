@@ -31,6 +31,10 @@ pub trait Store {
         entries: Vec<(String, Entry)>,
     ) -> impl std::future::Future<Output = Result<()>>;
     fn get(&self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
+    fn keys_where(
+        &self,
+        predicate: impl Fn(&&String) -> bool,
+    ) -> impl std::future::Future<Output = Result<Vec<String>>>;
     fn exists(&self, key: &str) -> impl std::future::Future<Output = Result<bool>>;
     fn delete(&mut self, key: &str) -> impl std::future::Future<Output = Result<Option<Entry>>>;
     fn delete_many(&mut self, key: Vec<String>) -> impl std::future::Future<Output = Result<u64>>;
@@ -133,6 +137,19 @@ impl<C: Clock> Store for HashMapStore<C> {
             .get(key)
             .map(|e| !e.expired(&self.clock))
             .unwrap_or_default())
+    }
+
+    async fn keys_where(&self, predicate: impl Fn(&&String) -> bool) -> Result<Vec<String>> {
+        let guard = self.broker.lock().expect("Store mutex poisoned"); //TODO check if this holds the lock for a lot
+        let result = guard
+            .iter()
+            .filter(|(key, entry): &(&String, &Entry)| {
+                predicate(key) && !entry.expired(&self.clock)
+            })
+            .map(|(key, _)| key)
+            .cloned()
+            .collect();
+        Ok(result) //TODO: bad since we are cloning
     }
 }
 
