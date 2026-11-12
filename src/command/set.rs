@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 
 use super::Command;
 use crate::{protocol::Literal, utils::now_ms};
@@ -38,8 +38,7 @@ pub(super) fn parse(mut iterator: impl Iterator<Item = Literal>) -> anyhow::Resu
     let mut expiry_rule = None;
     let mut return_old_value = false;
     while let Some(Literal::BulkString(next)) = iterator.next() {
-        //TODO: beware of hidden errors
-        match next.as_str() {
+        match next.to_uppercase().as_str() {
             "NX" => set_rule = Some(SetArgumentRule::NX),
             "XX" => set_rule = Some(SetArgumentRule::XX),
             "KEEPTTL" => expiry_rule = Some(SetArgumentExpiryRule::KeepTtl),
@@ -61,14 +60,14 @@ pub(super) fn parse(mut iterator: impl Iterator<Item = Literal>) -> anyhow::Resu
                     .next()
                     .ok_or_else(|| anyhow!("Protocol Error"))?
                     .parse()?;
-                let expires_after = if arg == "EX" {
+                let expires_after = if arg == "EXAT" {
                     timestamp * 1000
                 } else {
                     timestamp
                 };
                 expiry_rule = Some(SetArgumentExpiryRule::ExpiresAtMs(expires_after))
             }
-            _ => {}
+            wrong => bail!("Wrong SET parameter {wrong}"),
         }
     }
     Ok(Command::Set(SetCommand {

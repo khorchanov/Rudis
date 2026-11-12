@@ -48,7 +48,7 @@ impl Command {
         if let Literal::Array(elements) = literal {
             let mut iterator = elements.into_iter();
             let result = match iterator.next() {
-                Some(Literal::BulkString(command)) => match command.as_str() {
+                Some(Literal::BulkString(command)) => match command.to_uppercase().as_str() {
                     "PING" => Command::Ping(parser::parse_opt(&mut iterator)?),
                     "ECHO" => Command::Echo(parser::parse_one(&mut iterator)?),
                     "GET" => Command::Get(parser::parse_one(&mut iterator)?),
@@ -90,7 +90,7 @@ impl Command {
                     "MSET" => Command::Mset(parser::parse_vec(&mut iterator)?),
                     "MGET" => Command::Mget(parser::parse_vec(&mut iterator)?),
                     "SET" => set::parse(iterator)?,
-                    _ => bail!("Unknown command"), //TODO: error should be returned properly
+                    _ => bail!("Unknown command"),
                 },
                 _ => bail!("Protocl error: Expected a first BulkString with the command"),
             };

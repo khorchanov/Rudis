@@ -40,7 +40,6 @@ pub async fn handle_connection<S: Store>(
                         Err(e) => {
                             write_and_flush(&mut writer, format!("-ERR {e}\r\n").into_bytes())
                                 .await?;
-                            return Ok(());
                         }
                     }
                 }
