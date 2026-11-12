@@ -19,8 +19,8 @@ pub(super) async fn execute(
             if let Some(expiry_at_ms) = expires_at_ms {
                 let remaining_ms = expiry_at_ms.saturating_sub(now_ms());
                 match unit {
-                    TtlReturnUnit::Seconds => Literal::Integer((remaining_ms / 1000) as i64),
-                    TtlReturnUnit::Millis => Literal::Integer(remaining_ms as i64),
+                    TtlReturnUnit::Seconds => Literal::Integer(i64::try_from(remaining_ms / 1000)?),
+                    TtlReturnUnit::Millis => Literal::Integer(i64::try_from(remaining_ms)?),
                 }
             } else {
                 Literal::Integer(-1)

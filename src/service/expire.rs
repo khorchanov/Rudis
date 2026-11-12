@@ -14,7 +14,7 @@ pub(super) async fn execute(
             Literal::Integer(1)
         }
         (Some(mut entry), Some(duration)) => {
-            entry.expires_at_ms = Some(now_ms() + duration.as_millis() as u64); //TODO: fix this
+            entry.expires_at_ms = Some(now_ms() + u64::try_from(duration.as_millis())?); //TODO: fix this
             store.put(key.to_owned(), entry).await?;
             Literal::Integer(1)
         }

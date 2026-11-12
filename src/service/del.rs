@@ -1,7 +1,9 @@
 use crate::{protocol::Literal, store::Store};
 
 pub(super) async fn execute(store: &mut impl Store, keys: Vec<String>) -> anyhow::Result<Literal> {
-    Ok(Literal::Integer(store.delete_many(keys).await? as i64))
+    Ok(Literal::Integer(i64::try_from(
+        store.delete_many(keys).await?,
+    )?))
 }
 
 #[cfg(test)]
