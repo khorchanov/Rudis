@@ -33,8 +33,13 @@ pub async fn handle_connection<S: Store>(
                     match Command::try_parse_resp(&buf) {
                         Ok(Some((command, bytes_processed))) => {
                             buf.drain(..bytes_processed);
+                            let is_quit = matches!(command, Command::Quit);
                             let processing_result = service.process_command_resp(command).await?; //TODO graceful error handling needed here
                             write_and_flush(&mut writer, serialize(processing_result)).await?;
+                            if is_quit {
+                                println!("Client sent QUIT");
+                                return Ok(());
+                            }
                         }
                         Ok(None) => break,
                         Err(e) => {
@@ -127,6 +132,28 @@ mod test {
         )
         .await;
         assert_eq!(response, "$3\r\nmsg\r\n+PONG\r\n");
+    }
+
+    #[tokio::test]
+    async fn quit_should_reply_ok_and_ignore_following_commands() {
+        let mut executor = Default::default();
+        let response = send_and_get(
+            b"*1\r\n$4\r\nQUIT\r\n*1\r\n$4\r\nPING\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n");
+    }
+
+    #[tokio::test]
+    async fn test_client_setinfo_and_command_count() {
+        let mut executor = Default::default();
+        let response = send_and_get(
+            b"*4\r\n$6\r\nclient\r\n$7\r\nsetinfo\r\n$8\r\nlib-name\r\n$5\r\nrudis\r\n*2\r\n$7\r\nCOMMAND\r\n$5\r\nCOUNT\r\n",
+            &mut executor,
+        )
+        .await;
+        assert_eq!(response, "+OK\r\n:0\r\n");
     }
 
     #[tokio::test]

@@ -21,6 +21,7 @@ mod ping;
 mod set;
 mod strlen;
 mod ttl;
+mod handshake;
 
 #[derive(Clone)]
 pub struct Executor<S: Store> {
@@ -59,6 +60,11 @@ impl<S: Store> Executor<S> {
             Command::GetDel(key) => get_del::execute(&mut self.store, &key).await,
             Command::StrLen(key) => strlen::execute(&self.store, &key).await,
             Command::Keys(pattern) => keys::execute(&mut self.store, pattern).await,
+            Command::Hello(protocol) => handshake::hello::execute(protocol),
+            Command::Client(args) => handshake::client::execute(args),
+            Command::Command(args) => handshake::command::execute(args),
+            Command::Info => Ok(handshake::info::execute()),
+            Command::Quit => Ok(handshake::quit::execute()),
         }
     }
 }

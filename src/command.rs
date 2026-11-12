@@ -32,6 +32,11 @@ pub enum Command {
     GetDel(String),
     StrLen(String),
     Keys(Vec<GlobElement>),
+    Hello(Option<i64>),
+    Client(Vec<String>),
+    Command(Vec<String>),
+    Info,
+    Quit,
 }
 
 #[derive(Debug)]
@@ -49,6 +54,8 @@ impl Command {
             let mut iterator = elements.into_iter();
             let result = match iterator.next() {
                 Some(Literal::BulkString(command)) => match command.to_uppercase().as_str() {
+                    "INFO" => Command::Info,
+                    "QUIT" => Command::Quit,
                     "PING" => Command::Ping(parser::parse_opt(&mut iterator)?),
                     "ECHO" => Command::Echo(parser::parse_one(&mut iterator)?),
                     "GET" => Command::Get(parser::parse_one(&mut iterator)?),
@@ -57,6 +64,9 @@ impl Command {
                     "DECR" => Command::Decr(parser::parse_one(&mut iterator)?),
                     "GETDEL" => Command::GetDel(parser::parse_one(&mut iterator)?),
                     "STRLEN" => Command::StrLen(parser::parse_one(&mut iterator)?),
+                    "HELLO" => Command::Hello(parser::parse_opt(&mut iterator)?),
+                    "CLIENT" => Command::Client(parser::parse_vec(&mut iterator)?),
+                    "COMMAND" => Command::Command(parser::parse_vec(&mut iterator)?),
                     "KEYS" => Command::Keys(parser::keys_pattern::parse(iterator)?),
                     "INCRBY" => Command::IncrBy(
                         parser::parse_one(&mut iterator)?,
